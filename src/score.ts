@@ -1,4 +1,4 @@
-import { KEY_COUNT } from "./pitch";
+import { KEY_COUNT, westernToPitchClass } from "./pitch";
 
 export interface ScoreEvent {
   t: number;
@@ -35,7 +35,13 @@ export function parseScore(raw: string): Score {
 
   let sa: string | null = null;
   if (typeof obj.sa === "string" && obj.sa.trim() !== "") {
-    sa = obj.sa.trim();
+    const name = obj.sa.trim().toUpperCase();
+    if (westernToPitchClass(name) < 0) {
+      throw new Error(
+        `Invalid sa "${obj.sa.trim()}": use C, C#, D, D#, E, F, F#, G, G#, A, A#, B`,
+      );
+    }
+    sa = name;
   }
 
   const events: ScoreEvent[] = [];

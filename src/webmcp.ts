@@ -125,6 +125,7 @@ export async function registerWebMCPTools(
         note: sargamForKey(key, saPc),
         western: keyToWestern(key),
         dur,
+        sa: deps.getSa(),
       });
     },
   };

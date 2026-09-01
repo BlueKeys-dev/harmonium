@@ -29,6 +29,9 @@ class HarmoniumEngine {
 
   private loadPromise: Promise<boolean> | null = null;
   private active = new Map<number, string>();
+  // Score voices fired via triggerAt: not in `active`, so stopAllNotes must
+  // release them by name or they ring until their scheduled auto-release.
+  private sustained = new Set<string>();
   private visualKeys = new Set<number>();
   private listeners = new Set<Listener>();
 
@@ -56,7 +59,16 @@ class HarmoniumEngine {
       urls,
       baseUrl: `${import.meta.env.BASE_URL}samples/harmonium/`,
       release: 0.4,
-      onload: () => resolveLoad(true),
+      onload: () => {
+        resolveLoad(true);
+        // Late-load upgrade: if the tap beat the download, move the session
+        // from synth back onto reeds without a reload.
+        if (this.lockState === "unlocked" && this.source === "synth") {
+          this.ensureSynth().releaseAll();
+          this.source = "samples";
+          this.notify();
+        }
+      },
     }).connect(this.ensureBus());
     return this.loadPromise;
   }
@@ -177,7 +189,7 @@ class HarmoniumEngine {
   }
 
   stopAllNotes(): void {
-    if (this.active.size > 0) {
+    if (this.active.size > 0 || this.sustained.size > 0) {
       const v = this.voice();
       for (const name of this.active.values()) {
         try {
@@ -187,6 +199,14 @@ class HarmoniumEngine {
         }
       }
       this.active.clear();
+      for (const name of this.sustained) {
+        try {
+          v.triggerRelease(name);
+        } catch {
+          /* score voice already auto-released */
+        }
+      }
+      this.sustained.clear();
     }
     if (this.visualKeys.size > 0) {
       this.visualKeys.clear();
@@ -202,6 +222,7 @@ class HarmoniumEngine {
     if (this.lockState !== "unlocked") return;
     if (!Number.isInteger(key) || key < 0 || key >= KEY_COUNT) return;
     const name = this.noteName(key);
+    this.sustained.add(name);
     try {
       this.voice().triggerAttackRelease(name, Math.max(0.05, dur), time);
     } catch {

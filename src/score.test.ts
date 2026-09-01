@@ -30,6 +30,13 @@ test("parseScore drops events without a trustworthy key", () => {
   assert.deepEqual(score.events.map((e) => e.key), [12]);
 });
 
+test("parseScore rejects an invalid sa", () => {
+  assert.throws(
+    () => parseScore(JSON.stringify({ sa: "H", events: [{ t: 0, key: 12 }] })),
+    /Invalid sa/,
+  );
+});
+
 test("parseScore rejects bad JSON", () => {
   assert.throws(() => parseScore("{"), /Invalid JSON/);
 });

@@ -83,7 +83,7 @@ This is a normal website — no server, no service worker. If the browser expose
 
 | Tool | Input | Returns |
 |---|---|---|
-| `play_note` | `{ key?: 0-38, note?: Sargam, dur?: seconds }` (key or note required) | `{ ok, tool, key, note, western, dur }` or `{ ok: false, tool, error }`. Auto-releases after `dur` (default 2 s). |
+| `play_note` | `{ key?: 0-38, note?: Sargam, dur?: seconds }` (key or note required) | `{ ok, tool, key, note, western, dur, sa }` or `{ ok: false, tool, error }`. Auto-releases after `dur` (default 2 s). |
 | `play_score` | `{ sa?, events: [{ t, key, note?, dur }] }` (events ≥ 1) | `{ ok, tool, events, durationSeconds, sa }` or error shape. Honors the abort signal. |
 | `set_sa` | `{ sa: "C"…"B" }` (12 Western names) | `{ ok, tool, sa, relabeled, retuned: false }`. Relabels only; never retunes. |
 | `stop` | `{}` | `{ ok, tool, stopped: true }`. Stops all reeds and score playback. |
@@ -95,7 +95,7 @@ This is a normal website — no server, no service worker. If the browser expose
 
 ## Sound
 
-- Preferred: `Tone.Sampler` with real harmonium reed recordings, chromatic anchors C3–D5 in `public/samples/harmonium/`; the sampler retunes the nearest anchor for the rest of the C3–D6 range.
+- Preferred: `Tone.Sampler` with real harmonium reed recordings, chromatic anchors C3–D5 in `public/samples/harmonium/`; the sampler retunes the nearest anchor for the rest of the C3–D6 range. The upstream pack has no recordings above D5 and none for F#4, so 13 keys (F#4, D#5–D6) always sound retuned — an asset limit, not a bug.
 - Fallback: if samples fail to load, a sustained reed-like `Tone.PolySynth` (detuned saw stack through a lowpass — not a percussive piano ping). The app always makes sound.
 
 ### Sample attribution

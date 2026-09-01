@@ -65,6 +65,21 @@ function script(): string {
         err.textContent = "events must be a non-empty array of { t, key, dur }";
         return;
       }
+      if (parsed.sa !== undefined && parsed.sa !== null) {
+        var SA = ["C","C#","D","D#","E","F","F#","G","G#","A","A#","B"];
+        if (SA.indexOf(String(parsed.sa).trim().toUpperCase()) < 0) {
+          err.textContent = "sa must be one of " + SA.join(", ");
+          return;
+        }
+      }
+      var badEvent = parsed.events.some(function (ev) {
+        return !ev || typeof ev.t !== "number" || !(ev.t >= 0) ||
+          !Number.isInteger(ev.key) || ev.key < 0 || ev.key > 38;
+      });
+      if (badEvent) {
+        err.textContent = "each event needs t >= 0 and integer key 0-38";
+        return;
+      }
       err.textContent = "";
       if (window.opener) {
         window.opener.postMessage({ type: "harmonium-score", text: ta.value }, location.origin);

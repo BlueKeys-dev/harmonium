@@ -88,8 +88,8 @@ export default function App() {
           setScoreText(d.text);
           if (score.sa) setSa(score.sa);
           setFlash("Score loaded from editor tab");
-        } catch {
-          /* editor already validated; ignore bad payloads */
+        } catch (e) {
+          setFlash(`Score rejected: ${(e as Error).message}`);
         }
       }
     };
