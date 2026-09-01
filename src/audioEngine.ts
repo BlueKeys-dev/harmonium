@@ -58,7 +58,7 @@ class HarmoniumEngine {
       baseUrl: `${import.meta.env.BASE_URL}samples/harmonium/`,
       release: 0.4,
       onload: () => resolveLoad(true),
-    });
+    }).connect(this.ensureBus());
     return this.loadPromise;
   }
 
@@ -89,14 +89,16 @@ class HarmoniumEngine {
     return this.bus;
   }
 
-  /** Output level in dB (for status/tests); -Infinity when silent. */
+  /** Output level in dB (for status/tests); -120 = silence. JSON-safe (no -Infinity). */
   getLevel(): number {
-    if (!this.analyser) return -Infinity;
+    if (!this.analyser) return -120;
     const buf = this.analyser.getValue() as Float32Array;
+    if (!buf || buf.length === 0) return -120;
     let sum = 0;
     for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
     const rms = Math.sqrt(sum / buf.length);
-    return rms > 0 ? 20 * Math.log10(rms) : -Infinity;
+    if (!isFinite(rms) || rms <= 0) return -120;
+    return 20 * Math.log10(rms);
   }
 
   private voice(): Tone.Sampler | Tone.PolySynth {

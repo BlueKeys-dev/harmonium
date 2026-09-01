@@ -11,6 +11,11 @@
 
 * {
   box-sizing: border-box;
+  scrollbar-width: none; /* Firefox: hide bars, keep scrolling */
+}
+
+::-webkit-scrollbar {
+  display: none; /* Chrome/Safari: hide bars everywhere (page + textarea) */
 }
 
 html,
