@@ -2,7 +2,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { engine } from "./audioEngine";
 import { parseScore, demoScoreText, type Score } from "./score";
 import { scorePlayer } from "./scorePlayer";
-import { registerWebMCPTools, type WebMCPStatus } from "./webmcp";
+import { ensureWebMCPTools, type WebMCPStatus } from "./webmcp";
 import { westernToPitchClass } from "./pitch";
 import { Keyboard } from "./components/Keyboard";
 import { TopBar } from "./components/TopBar";
@@ -52,24 +52,22 @@ export default function App() {
     engine.preload();
   }, []);
 
-  // Register WebMCP tools after the keyboard + audio module exist.
+  // Register WebMCP tools after the keyboard + audio module exist. The
+  // registration is a page-lifetime singleton: StrictMode's simulated
+  // unmount must not abort it (that used to leave zero tools registered).
   useEffect(() => {
     let cancelled = false;
-    let unregister = () => {};
-    registerWebMCPTools({
+    ensureWebMCPTools({
       getSa: () => saRef.current,
       applySa: (next) => setSa(next),
-    }).then(({ status, unregister: u }) => {
-      unregister = u;
-      if (cancelled) {
-        u();
-        return;
+    }).then(({ status }) => {
+      if (status.state === "error") {
+        console.error("WebMCP registration failed:", status.message);
       }
-      setWebmcp(status);
+      if (!cancelled) setWebmcp(status);
     });
     return () => {
       cancelled = true;
-      unregister();
     };
   }, []);
 

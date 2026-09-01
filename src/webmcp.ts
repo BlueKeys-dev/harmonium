@@ -22,6 +22,11 @@ export type WebMCPStatus =
   | { state: "registered"; tools: string[] }
   | { state: "error"; message: string };
 
+interface WebMCPRegistration {
+  status: WebMCPStatus;
+  unregister: () => void;
+}
+
 interface RegisterDeps {
   getSa: () => string;
   applySa: (sa: string) => void;
@@ -61,9 +66,7 @@ function clampDur(v: unknown): number {
   return Math.min(10, Math.max(0.1, v));
 }
 
-export async function registerWebMCPTools(
-  deps: RegisterDeps,
-): Promise<{ status: WebMCPStatus; unregister: () => void }> {
+async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistration> {
   const modelContext =
     (document as unknown as { modelContext?: ModelContext }).modelContext ??
     (navigator as unknown as { modelContext?: ModelContext }).modelContext;
@@ -248,9 +251,12 @@ export async function registerWebMCPTools(
     if (controller.signal.aborted) {
       return { status: { state: "unavailable" }, unregister: () => {} };
     }
+    // Roll back tools registered earlier in this batch. A partial catalog must
+    // not be reported as healthy or keep callbacks to stale app state.
+    controller.abort();
     return {
       status: { state: "error", message: String((e as Error)?.message ?? e) },
-      unregister: () => controller.abort(),
+      unregister: () => {},
     };
   }
 
@@ -258,4 +264,40 @@ export async function registerWebMCPTools(
     status: { state: "registered", tools: registered },
     unregister: () => controller.abort(),
   };
+}
+
+let pendingRegistration: Promise<WebMCPRegistration> | null = null;
+let unregisterCurrent = () => {};
+let moduleDisposed = false;
+
+/** Register once for this document, even when React StrictMode re-runs effects. */
+export function ensureWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistration> {
+  if (!pendingRegistration) {
+    pendingRegistration = registerWebMCPTools(deps)
+      .then((registration): WebMCPRegistration => {
+        if (moduleDisposed) {
+          registration.unregister();
+          return { status: { state: "unavailable" }, unregister: () => {} };
+        }
+        unregisterCurrent = registration.unregister;
+        return registration;
+      })
+      .catch((e: unknown): WebMCPRegistration => {
+        pendingRegistration = null;
+        return {
+          status: { state: "error", message: String((e as Error)?.message ?? e) },
+          unregister: () => {},
+        };
+      });
+  }
+  return pendingRegistration;
+}
+
+// Vite replaces modules without unloading the page. Dispose only for HMR;
+// React component cleanup must leave page-lifetime tools registered.
+if (import.meta.hot) {
+  import.meta.hot.dispose(() => {
+    moduleDisposed = true;
+    unregisterCurrent();
+  });
 }
