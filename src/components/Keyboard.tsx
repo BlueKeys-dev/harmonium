@@ -1,9 +1,10 @@
 import { useMemo } from "react";
 import { buildKeyInfos } from "../pitch";
+import type { Notation } from "../types";
 
 interface KeyboardProps {
   saPitchClass: number;
-  notation: "western" | "sargam" | "both";
+  notation: Notation;
   activeKeys: Set<number>;
   onDown: (key: number) => void;
   onUp: (key: number) => void;

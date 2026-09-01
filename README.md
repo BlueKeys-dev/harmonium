@@ -32,6 +32,7 @@ npm run preview
 | W E T Y U | black keys (C#, D#, F#, G#, A#) |
 | Z or [ | octave down |
 | X or ] | octave up |
+| Space | play / stop the loaded score (ignored while typing in text fields) |
 
 Auto-repeat is ignored, and typing in the JSON textarea never plays notes.
 
@@ -39,7 +40,9 @@ Auto-repeat is ignored, and typing in the JSON textarea never plays notes.
 
 ## JSON score
 
-Paste into the textarea and press Play. Shape:
+**Edit JSON** (top bar) opens a simplified standalone editor tab: it starts with the current score, has a **Load demo** button (a short Sa–Re–Ga–Ma–Pa–Dha–Ni–Sa' phrase), and **Apply to harmonium** posts the edited JSON back to the main page, which validates it before loading. **Export JSON** downloads the current score as `harmonium-score.json`. The round ▶ / ❚❚ button plays or stops the loaded score.
+
+Shape:
 
 ```json
 {
@@ -57,7 +60,7 @@ Paste into the textarea and press Play. Shape:
 - `dur` — duration in seconds; overlapping events are chords
 - `sa` — updates the page’s Sa for labels before playing
 
-The playback clock is the Web Audio clock (`Tone.Transport` scheduling), so keys light in sync with sound, not `setTimeout` drift. The **demo** button loads a short Sa–Re–Ga–Ma–Pa–Dha–Ni–Sa’ phrase.
+The playback clock is the Web Audio clock (`Tone.Transport` scheduling), so keys light in sync with sound, not `setTimeout` drift.
 
 ## WebMCP tools (in-page, for agents)
 

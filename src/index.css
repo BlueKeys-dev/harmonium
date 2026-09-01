@@ -77,153 +77,159 @@ body {
 
 .topbar {
   display: flex;
-  align-items: baseline;
+  align-items: center;
   justify-content: space-between;
   gap: 16px;
-  padding: 14px 20px 10px;
+  padding: 14px 22px;
+  border-bottom: 1px solid var(--edge);
 }
 
-.topbar h1 {
-  font-size: 1.15rem;
+.brand h1 {
+  font-size: 1.1rem;
   font-weight: 600;
   letter-spacing: 0.14em;
   text-transform: uppercase;
   margin: 0;
-  color: var(--text);
 }
 
 .status {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  font-size: 0.78rem;
+  display: block;
+  font-size: 0.68rem;
   color: var(--dim);
+  margin-top: 3px;
   white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
-.status .sep {
-  opacity: 0.5;
-}
-
-.dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  display: inline-block;
-}
-
-.dot.on {
-  background: #37d67a;
-  box-shadow: 0 0 8px #37d67a;
-}
-
-.dot.off {
-  background: var(--dim);
-}
-
-/* ---- controls ---- */
-
-.controls {
-  flex: 1;
-  padding: 4px 20px 16px;
-  display: flex;
-  flex-direction: column;
-  gap: 12px;
-}
-
-.row {
+.topbar-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
-  flex-wrap: wrap;
+  gap: 10px;
+  flex-shrink: 0;
 }
 
-.panel-label {
-  font-size: 0.72rem;
-  text-transform: uppercase;
-  letter-spacing: 0.12em;
-  color: var(--dim);
-  min-width: 64px;
-}
-
-.pill {
+.icon-btn {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
   border: 1px solid var(--edge);
-  background: var(--panel);
+  background: transparent;
   color: var(--text);
   border-radius: 999px;
-  font-size: 0.8rem;
-  padding: 5px 12px;
+  font-size: 0.78rem;
+  padding: 7px 13px;
   cursor: pointer;
+  font-family: inherit;
 }
 
-.pill:hover {
+.icon-btn:hover {
+  border-color: var(--accent-soft);
+  color: var(--accent);
+}
+
+.select-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  border: 1px solid var(--edge);
+  border-radius: 999px;
+  padding: 4px 6px 4px 13px;
+  background: transparent;
+}
+
+.select-wrap:hover {
   border-color: var(--accent-soft);
 }
 
-.pill.selected {
-  border-color: var(--accent);
-  color: var(--accent);
-  box-shadow: 0 0 10px var(--accent-soft);
-}
-
-.pill:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-
-.pill.primary {
-  border-color: var(--accent);
-}
-
-.sa-hint,
-.kb-hint {
-  font-size: 0.72rem;
+.select-label {
+  font-size: 0.7rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
   color: var(--dim);
 }
 
-/* ---- JSON panel ---- */
-
-.json-panel {
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
-  max-width: 720px;
-}
-
-.panel-head {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-}
-
-.json-panel textarea {
-  width: 100%;
-  resize: vertical;
+.select-wrap select {
+  appearance: none;
+  -webkit-appearance: none;
   background: var(--panel);
   color: var(--text);
-  border: 1px solid var(--edge);
-  border-radius: 8px;
-  padding: 10px 12px;
-  font-family: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+  border: none;
+  border-radius: 999px;
   font-size: 0.78rem;
-  line-height: 1.5;
+  padding: 4px 22px 4px 10px;
+  cursor: pointer;
+  font-family: inherit;
+  background-image: url("data:image/svg+xml;utf8,<svg xmlns='http://www.w3.org/2000/svg' width='10' height='10' viewBox='0 0 24 24' fill='none' stroke='%238b8b96' stroke-width='3' stroke-linecap='round' stroke-linejoin='round'><path d='m6 9 6 6 6-6'/></svg>");
+  background-repeat: no-repeat;
+  background-position: right 8px center;
 }
 
-.json-panel textarea:focus {
+.select-wrap select:focus {
   outline: none;
-  border-color: var(--accent-soft);
+  box-shadow: 0 0 0 1px var(--accent-soft);
 }
 
-.error {
-  color: #ff6b6b;
-  font-size: 0.8rem;
-  margin: 0;
+.select-wrap option {
+  background: var(--panel);
+  color: var(--text);
 }
 
-.hint {
-  color: var(--dim);
-  font-size: 0.78rem;
+.flash {
   margin: 0;
+  padding: 6px 22px;
+  font-size: 0.75rem;
+  color: var(--accent);
+  background: rgba(255, 90, 31, 0.08);
+}
+
+/* ---- stage (glow visualizer + play control) ---- */
+
+.stage {
+  position: relative;
+  flex: 1;
+  min-height: 200px;
+}
+
+.viz-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  pointer-events: none;
+}
+
+.play-row {
+  position: absolute;
+  right: 26px;
+  bottom: 22px;
+  z-index: 2;
+  display: flex;
+}
+
+.play-btn {
+  width: 68px;
+  height: 68px;
+  border-radius: 50%;
+  border: 1px solid var(--edge);
+  background: var(--panel);
+  color: var(--text);
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+.play-btn:hover {
+  border-color: var(--accent);
+  color: var(--accent);
+  box-shadow: 0 0 24px var(--accent-soft);
+}
+
+.play-btn:focus-visible {
+  outline: none;
+  border-color: var(--accent);
 }
 
 /* ---- keyboard ---- */
@@ -231,7 +237,7 @@ body {
 .keyboard {
   position: relative;
   width: 100%;
-  height: 190px;
+  height: clamp(250px, 38vh, 400px);
   user-select: none;
   -webkit-user-select: none;
   touch-action: none;
@@ -250,14 +256,14 @@ body {
   display: flex;
   align-items: flex-end;
   justify-content: center;
-  padding-bottom: 10px;
+  padding-bottom: 14px;
   font-family: inherit;
 }
 
 .key.white {
   flex: 1 1 0;
   background: linear-gradient(180deg, #f4f2ee, #d8d5cf);
-  border-radius: 0 0 5px 5px;
+  border-radius: 0 0 6px 6px;
   color: #333;
   border-left: 1px solid #a8a49c;
   transition: background 60ms linear;
@@ -278,11 +284,11 @@ body {
 .key.black {
   position: absolute;
   top: 0;
-  height: 60%;
+  height: 62%;
   background: linear-gradient(180deg, #2a2a30, #0d0d11);
   border: 1px solid #000;
   border-top: none;
-  border-radius: 0 0 4px 4px;
+  border-radius: 0 0 5px 5px;
   color: #c9c9d2;
   z-index: 2;
   transition: background 60ms linear;
@@ -299,37 +305,47 @@ body {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 2px;
+  gap: 3px;
   pointer-events: none;
-  line-height: 1.05;
+  line-height: 1.1;
 }
 
 .key.white .western {
-  font-size: 0.62rem;
+  font-size: 0.72rem;
   color: #55503f;
   font-weight: 600;
 }
 
 .key.white .sargam {
-  font-size: 0.66rem;
+  font-size: 0.8rem;
   color: #222;
   font-weight: 700;
 }
 
 .key.black .western {
-  font-size: 0.5rem;
+  font-size: 0.6rem;
   color: #7d7d88;
 }
 
 .key.black .sargam {
-  font-size: 0.56rem;
+  font-size: 0.66rem;
   color: #d5d5de;
   font-weight: 600;
 }
 
+@media (max-width: 900px) {
+  .icon-btn span {
+    display: none;
+  }
+
+  .status {
+    display: none;
+  }
+}
+
 @media (max-width: 720px) {
   .keyboard {
-    height: 130px;
+    height: clamp(180px, 30vh, 260px);
   }
 
   .key.white .western,

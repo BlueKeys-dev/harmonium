@@ -84,6 +84,7 @@ export class ScorePlayer {
   private part: Tone.Part | null = null;
   private endId: number | null = null;
   private playingFlag = false;
+  private generation = 0;
   private listeners = new Set<ScoreStatusListener>();
 
   isPlaying(): boolean {
@@ -118,10 +119,16 @@ export class ScorePlayer {
     transport.cancel(0);
 
     const draw = Tone.getDraw();
+    const gen = ++this.generation;
+    const live = () => gen === this.generation;
     this.part = new Tone.Part((time, ev) => {
       engine.triggerAt(ev.key, ev.dur, time);
-      draw.schedule(() => engine.setKeyActive(ev.key, true), time);
-      draw.schedule(() => engine.setKeyActive(ev.key, false), time + ev.dur);
+      draw.schedule(() => {
+        if (live()) engine.setKeyActive(ev.key, true);
+      }, time);
+      draw.schedule(() => {
+        if (live()) engine.setKeyActive(ev.key, false);
+      }, time + ev.dur);
     }, score.events.map((e) => ({ time: e.t, key: e.key, note: e.note, dur: e.dur })));
 
     const last = score.events[score.events.length - 1];
@@ -138,6 +145,8 @@ export class ScorePlayer {
 
   /** Stop playback, cancel future events, release held reeds. */
   stop(): void {
+    // Invalidate any in-flight visual callbacks from this playback.
+    this.generation++;
     if (this.part) {
       this.part.dispose();
       this.part = null;
