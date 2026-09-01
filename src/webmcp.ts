@@ -49,8 +49,10 @@ interface ToolDef {
   description: string;
   inputSchema: Record<string, unknown>;
   annotations?: Record<string, unknown>;
-  execute: (input: unknown, ctx: { signal: AbortSignal }) => Promise<unknown>;
+  execute: (input: unknown, ctx?: { signal?: AbortSignal }) => Promise<unknown>;
 }
+
+const NEVER_ABORTED_SIGNAL = new AbortController().signal;
 
 /** Uniform tool result: every tool returns { ok, tool, error?, ...data }. */
 function ok(tool: string, data: Record<string, unknown>): Record<string, unknown> {
@@ -101,7 +103,8 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
       anyOf: [{ required: ["key"] }, { required: ["note"] }],
     },
     annotations: { readOnlyHint: false },
-    execute: async (input, { signal }) => {
+    execute: async (input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
       if (signal.aborted) return fail("play_note", "Tool call was aborted.");
       if (engine.lockState !== "unlocked") return fail("play_note", LOCKED_MESSAGE);
       const saPc = Math.max(0, westernToPitchClass(deps.getSa()));
@@ -163,7 +166,8 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
       required: ["events"],
     },
     annotations: { readOnlyHint: false },
-    execute: async (input, { signal }) => {
+    execute: async (input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
       if (signal.aborted) return fail("play_score", "Tool call was aborted.");
       if (engine.lockState !== "unlocked") return fail("play_score", LOCKED_MESSAGE);
       let score: Score;

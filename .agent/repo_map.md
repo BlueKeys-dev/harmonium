@@ -16,7 +16,8 @@
 - `src/scorePlayer.ts`: Tone Transport/Part scheduling and synchronized visual
   callbacks.
 - `src/pitch.ts`: key/MIDI/Western/Sargam conversion and keyboard layout.
-- `src/webmcp.ts`: five page tools that reuse the audio engine and score player.
+- `src/webmcp.ts`: five page tools that reuse the audio engine and score player;
+  playback tools accept hosts with or without per-call cancellation signals.
 - `src/components/Keyboard.tsx`: pointer keyboard layout and interaction.
 - `src/hooks/useComputerKeys.ts`: physical-key mapping and octave shifts.
 - `src/components/Visualizer.tsx`: continuously rendered Canvas2D score preview
@@ -27,6 +28,10 @@
 
 ## Assets and deployment
 
+- `index.html`: document shell; loads `/src/main.tsx` and declares the SVG/ICO
+  favicon links from `public/`.
+- `public/favicon.svg` / `public/favicon.ico`: static browser favicon assets;
+  Vite serves them from the site root without imports.
 - `public/samples/harmonium/`: CC-BY harmonium samples copied into the static
   build.
 - `vite.config.ts`: Vite React configuration.
