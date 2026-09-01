@@ -32,8 +32,8 @@
 
 - `.openai/hosting.json`: ChatGPT Sites project binding and static `dist`
   deployment contract.
-- `index.html`: document shell; loads `/src/main.tsx` and declares the SVG/ICO
-  favicon links from `public/`.
+- `index.html`: document shell; loads `/src/main.tsx` and declares favicon and
+  ChatGPT Sites social-preview metadata for assets from `public/`.
 - `public/favicon.svg` / `public/favicon.ico`: static browser favicon assets;
   Vite serves them from the site root without imports.
 - `public/og.png`: branded social preview card for ChatGPT Sites sharing.
