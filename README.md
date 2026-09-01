@@ -36,7 +36,22 @@ npm run preview
 
 Auto-repeat is ignored, and typing in the JSON textarea never plays notes.
 
-**Sargam / movable Sa** — every key shows a Western name and a Sargam name relative to Sa (default Sa = C: C=Sa, C#=komal Re, D=Re, D#=komal Ga, E=Ga, F=Ma, F#=tivra Ma, G=Pa, G#=komal Dha, A=Dha, A#=komal Ni, B=Ni). Changing Sa relabels only — frequencies never move (key 12 is always C4).
+**Sargam / movable Sa** — every key shows a Western name and a Sargam name relative to Sa (default Sa = C). On the **keyboard**, komal swaras display as lowercase (`re`, `ga`, `dha`, `ni`); natural swaras stay capitalized (`Re`, `Ga`, `Dha`, `Ni`). Canonical names for WebMCP and score JSON are unchanged (e.g. `komal Re`, `Re`). Changing Sa relabels only — frequencies never move (key 12 is always C4).
+
+| Key (Sa = C) | Western | Keyboard label | WebMCP / score name |
+|---|---|---|---|
+| C | C | Sa | Sa |
+| C# | C# | re | komal Re |
+| D | D | Re | Re |
+| D# | D# | ga | komal Ga |
+| E | E | Ga | Ga |
+| F | F | Ma | Ma |
+| F# | F# | tivra Ma | tivra Ma |
+| G | G | Pa | Pa |
+| G# | G# | dha | komal Dha |
+| A | A | Dha | Dha |
+| A# | A# | ni | komal Ni |
+| B | B | Ni | Ni |
 
 ## JSON score
 
@@ -66,15 +81,15 @@ The playback clock is the Web Audio clock (`Tone.Transport` scheduling), so keys
 
 This is a normal website — no server, no service worker. If the browser exposes the WebMCP page API (`document.modelContext.registerTool`, with `navigator.modelContext` as deprecated fallback), the page registers five tools that drive the **same visible keyboard**:
 
-| Tool | Input | Notes |
+| Tool | Input | Returns |
 |---|---|---|
-| `play_note` | `{ key?: 0-38, note?: Sargam, dur?: seconds }` (key or note required) | Plays one reed; returns `{ ok, key, note, western, dur }`. Auto-releases after `dur` (default 2 s). |
-| `play_score` | `{ sa?, events: [{ t, key, note?, dur }] }` (events ≥ 1) | Sample-accurate playback on the visible keyboard; returns `{ ok, events, durationSeconds, sa }`. Honors the abort signal. |
-| `set_sa` | `{ sa: "C"…"B" }` (12 Western names) | Relabels Sargam; never retunes. |
-| `stop` | `{}` | Stops all reeds and score playback. |
-| `get_state` | `{}` | `{ sa, audioUnlocked, audioSource, activeKeys, scorePlaying }` (read-only). |
+| `play_note` | `{ key?: 0-38, note?: Sargam, dur?: seconds }` (key or note required) | `{ ok, tool, key, note, western, dur }` or `{ ok: false, tool, error }`. Auto-releases after `dur` (default 2 s). |
+| `play_score` | `{ sa?, events: [{ t, key, note?, dur }] }` (events ≥ 1) | `{ ok, tool, events, durationSeconds, sa }` or error shape. Honors the abort signal. |
+| `set_sa` | `{ sa: "C"…"B" }` (12 Western names) | `{ ok, tool, sa, relabeled, retuned: false }`. Relabels only; never retunes. |
+| `stop` | `{}` | `{ ok, tool, stopped: true }`. Stops all reeds and score playback. |
+| `get_state` | `{}` | `{ ok, tool, sa, audioUnlocked, audioSource, activeKeys, scorePlaying }` (`readOnlyHint`). |
 
-**Audio lock:** browsers require a user gesture for sound. If audio is locked, `play_note` and `play_score` return a clear string asking the human to tap “Tap to start” first — WebMCP `execute` is not a user gesture.
+**Audio lock:** browsers require a user gesture for sound. If audio is locked, `play_note` and `play_score` return `{ ok: false, error }` asking the human to tap “Tap to start” first — WebMCP `execute` is not a user gesture. Every tool returns `{ ok, tool, ... }`; errors carry an `error` message.
 
 **Enabling WebMCP for local testing:** Chrome needs `chrome://flags/#enable-webmcp-testing` enabled (then relaunch), or use a browser/agent with WebMCP support. Without it, the page shows “WebMCP unavailable” and the human instrument still works fully.
 
@@ -91,10 +106,11 @@ Harmonium samples from the [tonejs-instruments](https://github.com/Makefully-Stu
 
 Vite + React + TypeScript + Tone.js. No secrets, no backend, no service workers.
 
-## Verify key math
+## Verify
 
 ```bash
-npm run check
+npm run typecheck   # tsc --noEmit
+npm test            # pitch + score unit tests (node:test via tsx)
+npm run check       # 39/23/16 key layout assertions
+npm run build       # typecheck + production bundle
 ```
-
-Prints the 39/23/16 key assertions and the white/black pattern.

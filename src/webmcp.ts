@@ -1,6 +1,13 @@
 import { engine } from "./audioEngine";
-import { parseScore, scorePlayer, type Score } from "./scorePlayer";
-import { SA_OPTIONS, sargamForKey, keyForSargam, keyToWestern, westernToPitchClass, KEY_COUNT } from "./pitch";
+import { scorePlayer } from "./scorePlayer";
+import { parseScore, type Score } from "./score";
+import {
+  SA_OPTIONS,
+  sargamForKey,
+  keyToWestern,
+  westernToPitchClass,
+  resolveKey,
+} from "./pitch";
 
 /**
  * In-page WebMCP tools. The page is the tool server: an agent visiting this
@@ -40,24 +47,18 @@ interface ToolDef {
   execute: (input: unknown, ctx: { signal: AbortSignal }) => Promise<unknown>;
 }
 
+/** Uniform tool result: every tool returns { ok, tool, error?, ...data }. */
+function ok(tool: string, data: Record<string, unknown>): Record<string, unknown> {
+  return { ok: true, tool, ...data };
+}
+
+function fail(tool: string, error: string): Record<string, unknown> {
+  return { ok: false, tool, error };
+}
+
 function clampDur(v: unknown): number {
   if (typeof v !== "number" || !isFinite(v)) return 2;
   return Math.min(10, Math.max(0.1, v));
-}
-
-function resolveKey(input: { key?: unknown; note?: unknown }, saPc: number): number | null {
-  if (
-    typeof input.key === "number" &&
-    Number.isInteger(input.key) &&
-    input.key >= 0 &&
-    input.key < KEY_COUNT
-  ) {
-    return input.key;
-  }
-  if (typeof input.note === "string" && input.note.trim() !== "") {
-    return keyForSargam(input.note, saPc);
-  }
-  return null;
 }
 
 export async function registerWebMCPTools(
@@ -96,23 +97,35 @@ export async function registerWebMCPTools(
       },
       anyOf: [{ required: ["key"] }, { required: ["note"] }],
     },
-    execute: async (input) => {
-      if (engine.lockState !== "unlocked") return LOCKED_MESSAGE;
-      const saPc = westernToPitchClass(deps.getSa());
-      const key = resolveKey(input ?? {}, saPc >= 0 ? saPc : 0);
+    annotations: { readOnlyHint: false },
+    execute: async (input, { signal }) => {
+      if (signal.aborted) return fail("play_note", "Tool call was aborted.");
+      if (engine.lockState !== "unlocked") return fail("play_note", LOCKED_MESSAGE);
+      const saPc = Math.max(0, westernToPitchClass(deps.getSa()));
+      const key = resolveKey(input ?? {}, saPc);
       if (key === null) {
-        return "Invalid input: give key (integer 0-38) or note (Sargam name like 'Sa', 'komal Re').";
+        return fail(
+          "play_note",
+          "Invalid input: give key (integer 0-38) or note (Sargam name like 'Sa', 'komal Re').",
+        );
       }
       const dur = clampDur((input as { dur?: unknown }).dur);
       engine.playNote(key);
-      window.setTimeout(() => engine.stopNote(key), dur * 1000);
-      return {
-        ok: true,
+      const release = window.setTimeout(() => engine.stopNote(key), dur * 1000);
+      signal.addEventListener(
+        "abort",
+        () => {
+          window.clearTimeout(release);
+          engine.stopNote(key);
+        },
+        { once: true },
+      );
+      return ok("play_note", {
         key,
-        note: sargamForKey(key, saPc >= 0 ? saPc : 0),
+        note: sargamForKey(key, saPc),
         western: keyToWestern(key),
         dur,
-      };
+      });
     },
   };
 
@@ -145,27 +158,32 @@ export async function registerWebMCPTools(
       },
       required: ["events"],
     },
+    annotations: { readOnlyHint: false },
     execute: async (input, { signal }) => {
-      if (engine.lockState !== "unlocked") return LOCKED_MESSAGE;
+      if (signal.aborted) return fail("play_score", "Tool call was aborted.");
+      if (engine.lockState !== "unlocked") return fail("play_score", LOCKED_MESSAGE);
       let score: Score;
       try {
         score = parseScore(JSON.stringify(input ?? {}));
       } catch (e) {
-        return `Invalid score: ${(e as Error).message}`;
+        return fail("play_score", `Invalid score: ${(e as Error).message}`);
       }
       let summary: { events: number; duration: number };
       try {
         summary = scorePlayer.play(score, deps.applySa);
       } catch (e) {
-        return `Could not play score: ${(e as Error).message}`;
+        return fail("play_score", `Could not play score: ${(e as Error).message}`);
+      }
+      if (signal.aborted) {
+        scorePlayer.stop();
+        return fail("play_score", "Tool call was aborted.");
       }
       signal.addEventListener("abort", () => scorePlayer.stop(), { once: true });
-      return {
-        ok: true,
+      return ok("play_score", {
         events: summary.events,
         durationSeconds: Math.round(summary.duration * 100) / 100,
         sa: score.sa ?? deps.getSa(),
-      };
+      });
     },
   };
 
@@ -180,13 +198,14 @@ export async function registerWebMCPTools(
       },
       required: ["sa"],
     },
+    annotations: { readOnlyHint: false },
     execute: async (input) => {
       const sa = String((input as { sa?: unknown })?.sa ?? "").trim().toUpperCase();
       if (westernToPitchClass(sa) < 0) {
-        return `Invalid sa: use one of ${SA_OPTIONS.join(", ")}`;
+        return fail("set_sa", `Invalid sa: use one of ${SA_OPTIONS.join(", ")}`);
       }
       deps.applySa(sa);
-      return { ok: true, sa, relabeled: true, retuned: false };
+      return ok("set_sa", { sa, relabeled: true, retuned: false });
     },
   };
 
@@ -194,9 +213,10 @@ export async function registerWebMCPTools(
     name: "stop",
     description: "Stop all sounding reeds and any score playback on the visible keyboard.",
     inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: false },
     execute: async () => {
       scorePlayer.stop();
-      return { ok: true, stopped: true };
+      return ok("stop", { stopped: true });
     },
   };
 
@@ -205,13 +225,14 @@ export async function registerWebMCPTools(
     description: "Read the web-harmonium state: current Sa, audio lock, active keys, score playback.",
     inputSchema: { type: "object", properties: {} },
     annotations: { readOnlyHint: true },
-    execute: async () => ({
-      sa: deps.getSa(),
-      audioUnlocked: engine.lockState === "unlocked",
-      audioSource: engine.source,
-      activeKeys: engine.getActiveKeys(),
-      scorePlaying: scorePlayer.isPlaying(),
-    }),
+    execute: async () =>
+      ok("get_state", {
+        sa: deps.getSa(),
+        audioUnlocked: engine.lockState === "unlocked",
+        audioSource: engine.source,
+        activeKeys: engine.getActiveKeys(),
+        scorePlaying: scorePlayer.isPlaying(),
+      }),
   };
 
   const tools = [playNoteTool, playScoreTool, setSaTool, stopTool, getStateTool];

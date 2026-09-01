@@ -24,7 +24,6 @@ const POST_TAP_WAIT_MS = 6_000;
 
 class HarmoniumEngine {
   private bus: Tone.Gain | null = null;
-  private analyser: Tone.Analyser | null = null;
   private sampler: Tone.Sampler | null = null;
   private synth: Tone.PolySynth | null = null;
 
@@ -81,25 +80,28 @@ class HarmoniumEngine {
 
   private ensureBus(): Tone.Gain {
     if (!this.bus) {
-      this.analyser = new Tone.Analyser("waveform", 256);
       this.bus = new Tone.Gain(0.7);
-      this.bus.connect(this.analyser);
       this.bus.toDestination();
+      // Parked with getLevel(): wire an Analyser back in when a level meter ships.
+      // this.analyser = new Tone.Analyser("waveform", 256);
+      // this.bus.connect(this.analyser);
     }
     return this.bus;
   }
 
-  /** Output level in dB (for status/tests); -120 = silence. JSON-safe (no -Infinity). */
-  getLevel(): number {
-    if (!this.analyser) return -120;
-    const buf = this.analyser.getValue() as Float32Array;
-    if (!buf || buf.length === 0) return -120;
-    let sum = 0;
-    for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
-    const rms = Math.sqrt(sum / buf.length);
-    if (!isFinite(rms) || rms <= 0) return -120;
-    return 20 * Math.log10(rms);
-  }
+  // Parked until a level meter or status readout needs it. Re-add the
+  // `analyser` field, the ensureBus wiring above, and this reader together.
+  // /** Output level in dB; -120 = silence. JSON-safe (no -Infinity). */
+  // getLevel(): number {
+  //   if (!this.analyser) return -120;
+  //   const buf = this.analyser.getValue() as Float32Array;
+  //   if (!buf || buf.length === 0) return -120;
+  //   let sum = 0;
+  //   for (let i = 0; i < buf.length; i++) sum += buf[i] * buf[i];
+  //   const rms = Math.sqrt(sum / buf.length);
+  //   if (!isFinite(rms) || rms <= 0) return -120;
+  //   return 20 * Math.log10(rms);
+  // }
 
   private voice(): Tone.Sampler | Tone.PolySynth {
     return this.source === "synth" ? this.ensureSynth() : (this.sampler as Tone.Sampler);
@@ -120,10 +122,6 @@ class HarmoniumEngine {
 
   getActiveKeys(): number[] {
     return [...this.visualKeys].sort((a, b) => a - b);
-  }
-
-  isKeyActive(key: number): boolean {
-    return this.visualKeys.has(key);
   }
 
   /** Resume the AudioContext on a user gesture, then pick sampler or synth. */
@@ -220,13 +218,6 @@ class HarmoniumEngine {
       this.notify();
     } else if (!active && had) {
       this.visualKeys.delete(key);
-      this.notify();
-    }
-  }
-
-  clearVisualKeys(): void {
-    if (this.visualKeys.size > 0) {
-      this.visualKeys.clear();
       this.notify();
     }
   }

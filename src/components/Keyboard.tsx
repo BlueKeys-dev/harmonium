@@ -1,5 +1,5 @@
 import { useMemo } from "react";
-import { buildKeyInfos } from "../pitch";
+import { buildKeyInfos, sargamDisplay } from "../pitch";
 import type { Notation } from "../types";
 
 interface KeyboardProps {
@@ -50,7 +50,7 @@ export function Keyboard({ saPitchClass, notation, activeKeys, onDown, onUp }: K
             key={k.key}
             type="button"
             className={`key white${activeKeys.has(k.key) ? " active" : ""}`}
-            aria-label={`${k.western} ${k.sargam}`}
+            aria-label={`${k.western} ${sargamDisplay(k.sargam)}`}
             data-key={k.key}
             {...handlers(k.key)}
           >
@@ -59,7 +59,7 @@ export function Keyboard({ saPitchClass, notation, activeKeys, onDown, onUp }: K
                 <span className="western">{k.western}</span>
               )}
               {(notation === "sargam" || notation === "both") && (
-                <span className="sargam">{k.sargam}</span>
+                <span className="sargam">{sargamDisplay(k.sargam)}</span>
               )}
             </span>
           </button>
@@ -72,7 +72,7 @@ export function Keyboard({ saPitchClass, notation, activeKeys, onDown, onUp }: K
             key={k.key}
             type="button"
             className={`key black${activeKeys.has(k.key) ? " active" : ""}`}
-            aria-label={`${k.western} ${k.sargam}`}
+            aria-label={`${k.western} ${sargamDisplay(k.sargam)}`}
             data-key={k.key}
             style={{ left: `${left}%`, width: `${blackWidthPct}%` }}
             {...handlers(k.key)}
@@ -82,7 +82,7 @@ export function Keyboard({ saPitchClass, notation, activeKeys, onDown, onUp }: K
                 <span className="western">{k.western}</span>
               )}
               {(notation === "sargam" || notation === "both") && (
-                <span className="sargam">{k.sargam}</span>
+                <span className="sargam">{sargamDisplay(k.sargam)}</span>
               )}
             </span>
           </button>

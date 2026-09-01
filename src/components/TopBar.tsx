@@ -20,13 +20,23 @@ export function TopBar({ sa, onSa, notation, onNotation, onEditJson, onExportJso
         <span className="status">{status}</span>
       </div>
       <nav className="topbar-actions" aria-label="Score and view controls">
-        <button type="button" className="icon-btn" onClick={onEditJson} title="Edit JSON in a new tab">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onEditJson}
+          title="Edit JSON in a new tab"
+          aria-label="Edit JSON in a new tab"
+        >
           <IconEditJson />
-          <span>Edit JSON</span>
         </button>
-        <button type="button" className="icon-btn" onClick={onExportJson} title="Download the score as JSON">
+        <button
+          type="button"
+          className="icon-btn"
+          onClick={onExportJson}
+          title="Download the score as JSON"
+          aria-label="Export score as JSON"
+        >
           <IconExport />
-          <span>Export JSON</span>
         </button>
         <label className="select-wrap" data-control="notation">
           <span className="select-label">Notation</span>

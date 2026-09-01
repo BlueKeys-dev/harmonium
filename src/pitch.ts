@@ -51,6 +51,11 @@ export function sargamForKey(key: number, saPitchClass: number): SargamName {
   return SARGAM_DEGREES[degree];
 }
 
+/** Keyboard display: komal swaras drop the "komal " prefix and use lowercase. */
+export function sargamDisplay(label: SargamName): string {
+  return label.startsWith("komal ") ? label.slice(6).toLowerCase() : label;
+}
+
 /** Resolve a Sargam label (or Western note name) to a key index, given Sa. */
 export function keyForSargam(label: string, saPitchClass: number): number | null {
   const norm = label.trim().toLowerCase();
@@ -73,6 +78,25 @@ export function keyForSargam(label: string, saPitchClass: number): number | null
     }
   }
   return best;
+}
+
+/**
+ * Resolve an agent/tool input to a key index. An explicit integer key wins;
+ * otherwise a Sargam note label resolves relative to Sa.
+ */
+export function resolveKey(input: { key?: unknown; note?: unknown }, saPitchClass: number): number | null {
+  if (
+    typeof input.key === "number" &&
+    Number.isInteger(input.key) &&
+    input.key >= 0 &&
+    input.key < KEY_COUNT
+  ) {
+    return input.key;
+  }
+  if (typeof input.note === "string" && input.note.trim() !== "") {
+    return keyForSargam(input.note, saPitchClass);
+  }
+  return null;
 }
 
 export interface KeyInfo {

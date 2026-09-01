@@ -49,11 +49,3 @@ export function IconPause({ size = 26 }: IconProps) {
     </svg>
   );
 }
-
-export function IconStop({ size = 26 }: IconProps) {
-  return (
-    <svg width={size} height={size} viewBox="0 0 24 24" fill="currentColor" aria-hidden>
-      <rect x="6.5" y="6.5" width="11" height="11" rx="1.5" />
-    </svg>
-  );
-}

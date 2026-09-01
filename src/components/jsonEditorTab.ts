@@ -1,4 +1,4 @@
-import { demoScoreText } from "../scorePlayer";
+import { demoScoreText } from "../score";
 
 const DEMO_JSON = demoScoreText();
 

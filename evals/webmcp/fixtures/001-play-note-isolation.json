@@ -1,0 +1,32 @@
+{
+  "messages": [
+    { "role": "user", "content": "Play the note Sa." }
+  ],
+  "applicationState": {
+    "tools": [
+      {
+        "name": "play_note",
+        "description": "Play one harmonium reed on the visible 39-key keyboard: it sounds and the key lights up. Requires the human to have tapped 'Tap to start' for audio."
+      },
+      {
+        "name": "play_score",
+        "description": "Play a JSON score { sa, events: [{ t, key, note, dur }] } on the visible keyboard with audio-clock timing. t and dur are seconds; key 0-38 is the pitch source of truth; note is an advisory Sargam label; overlapping events are chords. Requires the human to have tapped 'Tap to start' for audio."
+      },
+      {
+        "name": "set_sa",
+        "description": "Set the movable tonic Sa for Sargam labels on the visible keyboard. Relabels only; frequencies never retune."
+      },
+      {
+        "name": "stop",
+        "description": "Stop all sounding reeds and any score playback on the visible keyboard."
+      },
+      {
+        "name": "get_state",
+        "description": "Read the web-harmonium state: current Sa, audio lock, active keys, score playback."
+      }
+    ]
+  },
+  "expectedCall": [
+    { "functionName": "play_note", "arguments": { "note": "Sa" } }
+  ]
+}

@@ -1,7 +1,7 @@
 import { useEffect, useRef } from "react";
 import * as Tone from "tone";
 import { engine } from "../audioEngine";
-import type { Score } from "../scorePlayer";
+import type { Score } from "../score";
 
 const LOOKAHEAD_S = 6; // seconds of future visible above the keyboard
 const PAST_S = 1.2; // keep finished bars fading below for a beat

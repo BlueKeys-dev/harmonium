@@ -79,8 +79,9 @@ body {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  gap: 16px;
-  padding: 14px 22px;
+  gap: 12px;
+  flex-wrap: wrap;
+  padding: 12px 22px;
   border-bottom: 1px solid var(--edge);
 }
 
@@ -112,14 +113,15 @@ body {
 .icon-btn {
   display: inline-flex;
   align-items: center;
-  gap: 7px;
+  justify-content: center;
+  width: 34px;
+  height: 34px;
   border: 1px solid var(--edge);
   background: transparent;
   color: var(--text);
-  border-radius: 999px;
-  font-size: 0.78rem;
-  padding: 7px 13px;
+  border-radius: 50%;
   cursor: pointer;
+  padding: 0;
   font-family: inherit;
 }
 
@@ -334,12 +336,25 @@ body {
 }
 
 @media (max-width: 900px) {
-  .icon-btn span {
+  .topbar {
+    padding: 10px 14px;
+    row-gap: 8px;
+  }
+
+  .select-label {
     display: none;
   }
 
+  .select-wrap {
+    padding-left: 8px;
+  }
+
+  .select-wrap select {
+    padding: 4px 20px 4px 8px;
+  }
+
   .status {
-    display: none;
+    max-width: 100%;
   }
 }
 
@@ -351,5 +366,32 @@ body {
   .key.white .western,
   .key.black .western {
     display: none;
+  }
+
+  .key-label {
+    gap: 2px;
+  }
+
+  .key.white .sargam {
+    font-size: 0.7rem;
+  }
+
+  .play-btn {
+    width: 54px;
+    height: 54px;
+  }
+
+  .play-row {
+    right: 14px;
+    bottom: 14px;
+  }
+
+  .gate-button {
+    font-size: 1.2rem;
+    padding: 14px 32px;
+  }
+
+  .topbar-actions {
+    gap: 8px;
   }
 }

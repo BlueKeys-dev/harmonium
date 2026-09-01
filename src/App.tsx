@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { engine } from "./audioEngine";
-import { parseScore, scorePlayer, demoScoreText, type Score } from "./scorePlayer";
+import { parseScore, demoScoreText, type Score } from "./score";
+import { scorePlayer } from "./scorePlayer";
 import { registerWebMCPTools, type WebMCPStatus } from "./webmcp";
 import { westernToPitchClass } from "./pitch";
 import { Keyboard } from "./components/Keyboard";
@@ -176,15 +177,20 @@ export default function App() {
       return null; // invalid JSON -> no bars, error surfaces on play/export
     }
   }, [scoreText]);
-  const status = [
-    unlocked ? `audio: ${audioSource ?? "on"}` : "audio locked",
+  // Browser surfaces registered WebMCP tools itself; the page only shows problems.
+  const webmcpNote =
     webmcp.state === "registered"
-      ? `WebMCP tools registered (${webmcp.tools.length})`
+      ? null
       : webmcp.state === "error"
         ? `WebMCP error: ${webmcp.message}`
-        : "WebMCP unavailable",
+        : "WebMCP unavailable";
+  const status = [
+    unlocked ? `audio: ${audioSource ?? "on"}` : "audio locked",
+    webmcpNote,
     octave !== 0 ? `keys shifted ${octave > 0 ? "+" : ""}${octave * 12}` : "A S D F G H J · W E T Y U · Z/X octave · Space play/stop",
-  ].join("  ·  ");
+  ]
+    .filter(Boolean)
+    .join("  ·  ");
 
   return (
     <div className="app">
