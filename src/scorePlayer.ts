@@ -1,6 +1,6 @@
 import * as Tone from "tone";
 import { engine } from "./audioEngine";
-import type { Score } from "./score";
+import { scoreDuration, type Score } from "./score";
 
 export type ScoreStatusListener = (playing: boolean) => void;
 
@@ -55,8 +55,7 @@ export class ScorePlayer {
       }, time + ev.dur);
     }, score.events.map((e) => ({ time: e.t, key: e.key, note: e.note, dur: e.dur })));
 
-    const last = score.events[score.events.length - 1];
-    const total = last.t + last.dur;
+    const total = scoreDuration(score);
     this.endId = transport.scheduleOnce((time) => {
       draw.schedule(() => this.stop(), time);
     }, total + 0.02);

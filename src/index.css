@@ -267,10 +267,17 @@ body {
   border: none;
   cursor: pointer;
   display: flex;
+  min-width: 0;
   align-items: flex-end;
   justify-content: center;
   padding-bottom: 14px;
   font-family: inherit;
+}
+
+.key:focus-visible {
+  outline: 3px solid var(--accent);
+  outline-offset: -4px;
+  z-index: 3;
 }
 
 .key.white {
@@ -381,6 +388,10 @@ body {
 
   .key-label {
     gap: 2px;
+  }
+
+  .key {
+    overflow: hidden;
   }
 
   .key.white .sargam {

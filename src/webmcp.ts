@@ -1,6 +1,13 @@
 import { engine } from "./audioEngine";
 import { scorePlayer } from "./scorePlayer";
-import { parseScore, type Score } from "./score";
+import {
+  MAX_SCORE_EVENT_DURATION_SECONDS,
+  MAX_SCORE_EVENTS,
+  MAX_SCORE_NOTE_CHARS,
+  MAX_SCORE_START_SECONDS,
+  parseScore,
+  type Score,
+} from "./score";
 import {
   SA_OPTIONS,
   sargamForKey,
@@ -116,16 +123,25 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
         );
       }
       const dur = clampDur((input as { dur?: unknown }).dur);
-      engine.playNote(key);
-      const release = window.setTimeout(() => engine.stopNote(key), dur * 1000);
-      signal.addEventListener(
-        "abort",
-        () => {
-          window.clearTimeout(release);
-          engine.stopNote(key);
-        },
-        { once: true },
-      );
+      if (!engine.playNote(key)) {
+        return fail("play_note", "That key is already sounding; wait for it to be released.");
+      }
+      let finished = false;
+      let release = 0;
+      const onAbort = () => {
+        window.clearTimeout(release);
+        finish();
+      };
+      const finish = () => {
+        if (finished) return;
+        finished = true;
+        signal.removeEventListener("abort", onAbort);
+        engine.stopNote(key);
+      };
+      release = window.setTimeout(finish, dur * 1000);
+      if (signal !== NEVER_ABORTED_SIGNAL) {
+        signal.addEventListener("abort", onAbort, { once: true });
+      }
       return ok("play_note", {
         key,
         note: sargamForKey(key, saPc),
@@ -151,13 +167,28 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
         events: {
           type: "array",
           minItems: 1,
+          maxItems: MAX_SCORE_EVENTS,
           items: {
             type: "object",
             properties: {
-              t: { type: "number", description: "Start time in seconds from playback start" },
+              t: {
+                type: "number",
+                minimum: 0,
+                maximum: MAX_SCORE_START_SECONDS,
+                description: "Start time in seconds from playback start",
+              },
               key: { type: "integer", minimum: 0, maximum: 38, description: "Key index 0-38 (source of truth for pitch)" },
-              note: { type: "string", description: "Advisory Sargam label; pitch always comes from key" },
-              dur: { type: "number", description: "Duration in seconds" },
+              note: {
+                type: "string",
+                maxLength: MAX_SCORE_NOTE_CHARS,
+                description: "Advisory Sargam label; pitch always comes from key",
+              },
+              dur: {
+                type: "number",
+                exclusiveMinimum: 0,
+                maximum: MAX_SCORE_EVENT_DURATION_SECONDS,
+                description: "Duration in seconds",
+              },
             },
             required: ["t", "key", "dur"],
           },

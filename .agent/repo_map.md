@@ -11,13 +11,15 @@
 ## Ownership
 
 - `src/audioEngine.ts`: canonical note playback, sample preload/fallback,
-  active-key state, and Tone output.
-- `src/score.ts`: canonical score types, parsing, validation, and demo score.
+  active-key ownership, safe source upgrades, and Tone output.
+- `src/score.ts`: canonical bounded score types, parsing, validation, duration,
+  and demo score.
 - `src/scorePlayer.ts`: Tone Transport/Part scheduling and synchronized visual
   callbacks.
 - `src/pitch.ts`: key/MIDI/Western/Sargam conversion and keyboard layout.
 - `src/webmcp.ts`: five page tools that reuse the audio engine and score player;
-  playback tools accept hosts with or without per-call cancellation signals.
+  playback tools bound public work and accept hosts with or without per-call
+  cancellation signals.
 - `src/components/Keyboard.tsx`: pointer keyboard layout and interaction.
 - `src/hooks/useComputerKeys.ts`: physical-key mapping and octave shifts.
 - `src/components/Visualizer.tsx`: continuously rendered Canvas2D score preview

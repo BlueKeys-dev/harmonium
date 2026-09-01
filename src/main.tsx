@@ -5,8 +5,10 @@ import { engine } from "./audioEngine";
 import { scorePlayer } from "./scorePlayer";
 import "./index.css";
 
-// Debug/agent hook: lets tests and in-page agents inspect the live engine.
-(window as unknown as Record<string, unknown>).__harmonium = { engine, scorePlayer };
+if (import.meta.env.DEV) {
+  // Debug-only hook for local runtime inspection.
+  (window as unknown as Record<string, unknown>).__harmonium = { engine, scorePlayer };
+}
 
 createRoot(document.getElementById("root") as HTMLElement).render(
   <StrictMode>

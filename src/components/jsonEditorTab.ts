@@ -98,11 +98,21 @@ function script(): string {
  * postMessage; the harmonium page validates before loading them.
  */
 export function openJsonEditor(): Window | null {
-  const win = window.open("", "harmonium-score-editor");
+  let win = window.open("", "harmonium-score-editor");
   if (!win) return null;
-  win.document.write(
-    `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>web-harmonium · score JSON</title><style>${STYLE}</style></head><body><h1>Score JSON</h1><textarea id="ta" spellcheck="false"></textarea><div class="err" id="err"></div><div class="row"><button id="demo">Load demo</button><button id="apply" class="primary">Apply to harmonium</button></div><p class="hint">t / dur = seconds · key 0–38 sets pitch (key 12 = C4) · note is an advisory Sargam label · sa: C…B · overlapping events are chords</p><script>${script()}<\/script></body></html>`,
-  );
-  win.document.close();
+  try {
+    void win.document;
+  } catch {
+    win = window.open("", "_blank");
+    if (!win) return null;
+  }
+  try {
+    win.document.write(
+      `<!doctype html><html><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>web-harmonium · score JSON</title><style>${STYLE}</style></head><body><h1>Score JSON</h1><textarea id="ta" spellcheck="false"></textarea><div class="err" id="err"></div><div class="row"><button id="demo">Load demo</button><button id="apply" class="primary">Apply to harmonium</button></div><p class="hint">t / dur = seconds · key 0–38 sets pitch (key 12 = C4) · note is an advisory Sargam label · sa: C…B · overlapping events are chords</p><script>${script()}<\/script></body></html>`,
+    );
+    win.document.close();
+  } catch {
+    return null;
+  }
   return win;
 }

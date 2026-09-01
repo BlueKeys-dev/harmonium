@@ -89,13 +89,7 @@ class HarmoniumEngine {
           this.preloadProgress = 1;
           this.notify();
           resolveLoad(true);
-          // Late-load upgrade: if the tap beat the download, move the session
-          // from synth back onto reeds without a reload.
-          if (this.lockState === "unlocked" && this.source === "synth") {
-            this.ensureSynth().releaseAll();
-            this.source = "samples";
-            this.notify();
-          }
+          this.maybeUpgradeToSampler();
         },
       }).connect(this.ensureBus());
     });
@@ -148,6 +142,20 @@ class HarmoniumEngine {
     return this.source === "synth" ? this.ensureSynth() : (this.sampler as Tone.Sampler);
   }
 
+  private maybeUpgradeToSampler(): void {
+    if (
+      this.lockState !== "unlocked" ||
+      this.source !== "synth" ||
+      !this.sampler?.loaded ||
+      this.active.size > 0 ||
+      this.sustained.size > 0
+    ) {
+      return;
+    }
+    this.source = "samples";
+    this.notify();
+  }
+
   private noteName(key: number): string {
     return keyToWestern(key);
   }
@@ -186,19 +194,20 @@ class HarmoniumEngine {
   }
 
   /** Attack a key and sustain it until stopNote(key). No-op while locked. */
-  playNote(key: number): void {
-    if (this.lockState !== "unlocked" || key < 0 || key >= KEY_COUNT) return;
+  playNote(key: number): boolean {
+    if (this.lockState !== "unlocked" || key < 0 || key >= KEY_COUNT) return false;
     const name = this.noteName(key);
-    if (this.active.has(key)) return;
+    if (this.active.has(key)) return false;
     this.active.set(key, name);
     try {
       this.voice().triggerAttack(name, Tone.now());
     } catch {
       this.active.delete(key);
-      return;
+      return false;
     }
     this.visualKeys.add(key);
     this.notify();
+    return true;
   }
 
   stopNote(key: number): void {
@@ -215,32 +224,24 @@ class HarmoniumEngine {
     }
     this.visualKeys.delete(key);
     this.notify();
+    this.maybeUpgradeToSampler();
   }
 
   stopAllNotes(): void {
     if (this.active.size > 0 || this.sustained.size > 0) {
-      const v = this.voice();
-      for (const name of this.active.values()) {
-        try {
-          v.triggerRelease(name);
-        } catch {
-          /* voice already gone */
-        }
+      try {
+        this.voice().releaseAll();
+      } catch {
+        /* voice already gone */
       }
       this.active.clear();
-      for (const name of this.sustained) {
-        try {
-          v.triggerRelease(name);
-        } catch {
-          /* score voice already auto-released */
-        }
-      }
       this.sustained.clear();
     }
     if (this.visualKeys.size > 0) {
       this.visualKeys.clear();
       this.notify();
     }
+    this.maybeUpgradeToSampler();
   }
 
   /**

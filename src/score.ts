@@ -1,5 +1,11 @@
 import { KEY_COUNT, westernToPitchClass } from "./pitch";
 
+export const MAX_SCORE_JSON_CHARS = 1_000_000;
+export const MAX_SCORE_EVENTS = 1_024;
+export const MAX_SCORE_START_SECONDS = 1_800;
+export const MAX_SCORE_EVENT_DURATION_SECONDS = 30;
+export const MAX_SCORE_NOTE_CHARS = 80;
+
 export interface ScoreEvent {
   t: number;
   key: number;
@@ -18,6 +24,9 @@ export interface Score {
  * repairs events instead.
  */
 export function parseScore(raw: string): Score {
+  if (raw.length > MAX_SCORE_JSON_CHARS) {
+    throw new Error(`Score JSON is too large (maximum ${MAX_SCORE_JSON_CHARS} characters)`);
+  }
   let data: unknown;
   try {
     data = JSON.parse(raw);
@@ -31,6 +40,9 @@ export function parseScore(raw: string): Score {
   const eventsRaw = obj.events;
   if (!Array.isArray(eventsRaw) || eventsRaw.length === 0) {
     throw new Error("Score needs a non-empty events array");
+  }
+  if (eventsRaw.length > MAX_SCORE_EVENTS) {
+    throw new Error(`Score has too many events (maximum ${MAX_SCORE_EVENTS})`);
   }
 
   let sa: string | null = null;
@@ -46,15 +58,26 @@ export function parseScore(raw: string): Score {
 
   const events: ScoreEvent[] = [];
   for (let i = 0; i < eventsRaw.length; i++) {
-    const e = eventsRaw[i] as Record<string, unknown>;
-    const t = typeof e.t === "number" && isFinite(e.t) && e.t >= 0 ? e.t : null;
+    const candidate = eventsRaw[i];
+    if (typeof candidate !== "object" || candidate === null || Array.isArray(candidate)) continue;
+    const e = candidate as Record<string, unknown>;
+    const t =
+      typeof e.t === "number" &&
+      isFinite(e.t) &&
+      e.t >= 0 &&
+      e.t <= MAX_SCORE_START_SECONDS
+        ? e.t
+        : null;
     if (t === null) continue;
     let key: number | null = null;
     if (typeof e.key === "number" && Number.isInteger(e.key) && e.key >= 0 && e.key < KEY_COUNT) {
       key = e.key;
     }
-    const note = typeof e.note === "string" ? e.note : "";
-    const dur = typeof e.dur === "number" && isFinite(e.dur) && e.dur > 0 ? e.dur : 0.5;
+    const note = typeof e.note === "string" ? e.note.slice(0, MAX_SCORE_NOTE_CHARS) : "";
+    const dur =
+      typeof e.dur === "number" && isFinite(e.dur) && e.dur > 0
+        ? Math.min(e.dur, MAX_SCORE_EVENT_DURATION_SECONDS)
+        : 0.5;
     if (key === null) continue; // no trustworthy pitch -> drop the event
     events.push({ t, key, note, dur });
   }
@@ -63,6 +86,15 @@ export function parseScore(raw: string): Score {
   }
   events.sort((a, b) => a.t - b.t);
   return { sa, events };
+}
+
+export function scoreDuration(score: Score): number {
+  let total = 0;
+  for (const event of score.events) {
+    total = Math.max(total, event.t + event.dur);
+  }
+  if (!Number.isFinite(total)) throw new Error("Score duration must be finite");
+  return total;
 }
 
 /** Built-in demo: Sa Re Ga Ma Pa Dha Ni Sa' up and back down. */

@@ -32,6 +32,7 @@ export default function App() {
   scoreTextRef.current = scoreText;
   const unlockedRef = useRef(unlocked);
   unlockedRef.current = unlocked;
+  const editorWindowRef = useRef<Window | null>(null);
 
   // Engine drives visuals + lock state; keep React in sync.
   useEffect(() => {
@@ -75,6 +76,7 @@ export default function App() {
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
       if (e.origin !== window.location.origin) return;
+      if (e.source !== editorWindowRef.current) return;
       const d = e.data as { type?: string; text?: unknown } | null;
       if (!d || typeof d !== "object") return;
       if (d.type === "harmonium-score-request-init") {
@@ -120,7 +122,11 @@ export default function App() {
 
   const handleEditJson = () => {
     const win = openJsonEditor();
-    if (!win) setFlash("Popups blocked — allow popups to edit JSON in a tab");
+    if (!win) {
+      setFlash("Could not open the JSON editor — check popup permissions");
+      return;
+    }
+    editorWindowRef.current = win;
   };
 
   const handleExportJson = () => {

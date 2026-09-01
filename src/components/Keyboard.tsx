@@ -6,7 +6,7 @@ interface KeyboardProps {
   saPitchClass: number;
   notation: Notation;
   activeKeys: Set<number>;
-  onDown: (key: number) => void;
+  onDown: (key: number) => boolean;
   onUp: (key: number) => void;
 }
 
@@ -29,6 +29,11 @@ export function Keyboard({ saPitchClass, notation, activeKeys, onDown, onUp }: K
   }
 
   const handlers = (key: number) => ({
+    onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
+      if (e.detail !== 0) return;
+      if (!onDown(key)) return;
+      window.setTimeout(() => onUp(key), 350);
+    },
     onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
       const el = e.currentTarget;
