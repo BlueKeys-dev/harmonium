@@ -37,6 +37,8 @@ class HarmoniumEngine {
 
   lockState: AudioLockState = "locked";
   source: AudioSource | null = null;
+  /** 0..1 cache-warm progress over the sample set, for the gate UI. */
+  preloadProgress = 0;
 
   /** Kick off sample download early (no user gesture needed for network load). */
   preload(): void {
@@ -45,6 +47,7 @@ class HarmoniumEngine {
 
   private ensureSampler(): Promise<boolean> {
     if (this.loadPromise) return this.loadPromise;
+    const baseUrl = `${import.meta.env.BASE_URL}samples/harmonium/`;
     const urls: Record<string, string> = {};
     for (const n of SAMPLE_NAMES) {
       // File names use "Cs" for sharps; Tone note names use "#".
@@ -55,21 +58,47 @@ class HarmoniumEngine {
       resolveLoad = resolve;
       setTimeout(() => resolve(false), FALLBACK_LOAD_MS);
     });
-    this.sampler = new Tone.Sampler({
-      urls,
-      baseUrl: `${import.meta.env.BASE_URL}samples/harmonium/`,
-      release: 0.4,
-      onload: () => {
-        resolveLoad(true);
-        // Late-load upgrade: if the tap beat the download, move the session
-        // from synth back onto reeds without a reload.
-        if (this.lockState === "unlocked" && this.source === "synth") {
-          this.ensureSynth().releaseAll();
-          this.source = "samples";
+
+    // Warm the HTTP cache file-by-file so the gate shows real progress and the
+    // Tone.Sampler below loads from cache instead of competing with itself.
+    // Fetch phase owns 0..90%; the last 10% lands on sampler onload so the
+    // "ready" state means decoded, not merely downloaded.
+    let done = 0;
+    const total = SAMPLE_NAMES.length;
+    const bump = () => {
+      done += 1;
+      this.preloadProgress = (done / total) * 0.9;
+      this.notify();
+    };
+    void Promise.all(
+      SAMPLE_NAMES.map((n) =>
+        fetch(`${baseUrl}${n}.mp3`)
+          .then((r) => {
+            if (!r.ok) throw new Error(`HTTP ${r.status} for ${n}.mp3`);
+            return r.arrayBuffer();
+          })
+          .then(bump)
+          .catch(bump),
+      ),
+    ).then(() => {
+      this.sampler = new Tone.Sampler({
+        urls,
+        baseUrl,
+        release: 0.4,
+        onload: () => {
+          this.preloadProgress = 1;
           this.notify();
-        }
-      },
-    }).connect(this.ensureBus());
+          resolveLoad(true);
+          // Late-load upgrade: if the tap beat the download, move the session
+          // from synth back onto reeds without a reload.
+          if (this.lockState === "unlocked" && this.source === "synth") {
+            this.ensureSynth().releaseAll();
+            this.source = "samples";
+            this.notify();
+          }
+        },
+      }).connect(this.ensureBus());
+    });
     return this.loadPromise;
   }
 

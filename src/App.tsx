@@ -18,6 +18,7 @@ export default function App() {
   const [activeKeys, setActiveKeys] = useState<Set<number>>(new Set());
   const [unlocked, setUnlocked] = useState(false);
   const [audioSource, setAudioSource] = useState<string | null>(null);
+  const [preload, setPreload] = useState(0);
   const [scorePlaying, setScorePlaying] = useState(false);
   const [webmcp, setWebmcp] = useState<WebMCPStatus>({ state: "unavailable" });
   const [scoreText, setScoreText] = useState(() => demoScoreText());
@@ -38,6 +39,7 @@ export default function App() {
       setActiveKeys(new Set(engine.getActiveKeys()));
       setUnlocked(engine.lockState === "unlocked");
       setAudioSource(engine.source);
+      setPreload(engine.preloadProgress);
     };
     sync();
     return engine.subscribe(sync);
@@ -170,6 +172,7 @@ export default function App() {
   }, []);
 
   const saPc = Math.max(0, westernToPitchClass(sa));
+  const pct = Math.round(preload * 100);
   const parsedScore = useMemo<Score | null>(() => {
     try {
       return parseScore(scoreText);
@@ -199,7 +202,17 @@ export default function App() {
           <button type="button" className="gate-button" onClick={handleUnlock}>
             Tap to start
           </button>
-          <p className="gate-sub">Chrome blocks audio until a user tap. Tap enables the reeds.</p>
+          <div
+            className="preload"
+            role="progressbar"
+            aria-label="Reed sample preload"
+            aria-valuemin={0}
+            aria-valuemax={100}
+            aria-valuenow={pct}
+            aria-valuetext={pct < 100 ? `Loading reed samples, ${pct} percent` : "Reed samples ready"}
+          >
+            <div className="preload-fill" style={{ width: `${pct}%` }} />
+          </div>
           {gateError && <p className="error">{gateError}</p>}
         </div>
       )}
