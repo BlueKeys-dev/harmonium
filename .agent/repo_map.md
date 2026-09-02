@@ -43,6 +43,8 @@
 
 ## Assets and deployment
 
+- `docs/assets/`: repository-only screenshots and GIFs used by `README.md`;
+  kept outside `public/` so they do not inflate Sites deployments.
 - `.openai/hosting.json`: ChatGPT Sites project binding and static `dist`
   deployment contract.
 - `index.html`: document shell; loads `/src/main.tsx` and declares favicon and

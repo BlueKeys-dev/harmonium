@@ -8,11 +8,11 @@ One audio engine (`playNote(key)` / `stopNote(key)`) drives everything: mouse, c
 
 ** agent plays music:
 
-![Score playback on the harmonium](public/play.gif)
+![Score playback on the harmonium](docs/assets/play.gif)
 
 **Play by hand** — mouse or computer keyboard, keys light as they sound:
 
-![Human playing the harmonium](public/human.gif)
+![Human playing the harmonium](docs/assets/human.gif)
 
 ## Run it
 
