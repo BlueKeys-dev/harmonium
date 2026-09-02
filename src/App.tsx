@@ -2,15 +2,27 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { engine } from "./audioEngine";
 import { parseScore, demoScoreText, type Score } from "./score";
 import { scorePlayer } from "./scorePlayer";
-import { ensureWebMCPTools, type WebMCPStatus } from "./webmcp";
+import { setWebMCPMode, type WebMCPStatus } from "./webmcp";
 import { westernToPitchClass } from "./pitch";
+import { InputRouter, type RoutedNoteDown } from "./inputRouter";
+import {
+  advanceTeachSession,
+  emptyTeachSession,
+  loadTeachLesson,
+  resetTeachSession,
+  scoreTeachNote,
+  startTeachSession,
+  type TeachLesson,
+  type TeachSessionState,
+} from "./teachSession";
 import { Keyboard } from "./components/Keyboard";
 import { TopBar } from "./components/TopBar";
 import { PlayButton } from "./components/PlayButton";
+import { TeachMode } from "./components/TeachMode";
 import { Visualizer } from "./components/Visualizer";
 import { openJsonEditor } from "./components/jsonEditorTab";
 import { useComputerKeys } from "./hooks/useComputerKeys";
-import type { Notation } from "./types";
+import type { AppMode, Notation } from "./types";
 
 export default function App() {
   const [sa, setSa] = useState("C");
@@ -22,6 +34,8 @@ export default function App() {
   const [scorePlaying, setScorePlaying] = useState(false);
   const [webmcp, setWebmcp] = useState<WebMCPStatus>({ state: "unavailable" });
   const [scoreText, setScoreText] = useState(() => demoScoreText());
+  const [mode, setMode] = useState<AppMode>("play");
+  const [teachSession, setTeachSession] = useState<TeachSessionState>(() => emptyTeachSession());
   const [gateError, setGateError] = useState<string | null>(null);
   const [flash, setFlash] = useState<string | null>(null);
   const [octave, setOctave] = useState(0);
@@ -32,17 +46,25 @@ export default function App() {
   scoreTextRef.current = scoreText;
   const unlockedRef = useRef(unlocked);
   unlockedRef.current = unlocked;
+  const modeRef = useRef<AppMode>(mode);
+  modeRef.current = mode;
+  const teachSessionRef = useRef(teachSession);
+  teachSessionRef.current = teachSession;
   const editorWindowRef = useRef<Window | null>(null);
+  const teachInputRef = useRef<(event: RoutedNoteDown) => void>(() => {});
 
   const applySa = useCallback((next: string) => {
     saRef.current = next;
     setSa(next);
   }, []);
 
-  const applyScore = useCallback((score: Score, sourceText?: string) => {
-    const text = sourceText ?? JSON.stringify(score, null, 2);
+  const applyScore = useCallback((
+    score: Score,
+    options?: { sourceText?: string; syncEditor?: boolean },
+  ) => {
+    const text = options?.sourceText ?? JSON.stringify(score, null, 2);
     const editor = editorWindowRef.current;
-    if (editor && !editor.closed) {
+    if (options?.syncEditor !== false && editor && !editor.closed) {
       editor.postMessage(
         { type: "harmonium-score-init", text },
         window.location.origin,
@@ -53,6 +75,42 @@ export default function App() {
     setScoreText(text);
     if (score.sa) applySa(score.sa);
   }, [applySa]);
+
+  const commitTeachSession = useCallback((next: TeachSessionState) => {
+    teachSessionRef.current = next;
+    setTeachSession(next);
+  }, []);
+
+  const inputRouterRef = useRef<InputRouter | null>(null);
+  if (!inputRouterRef.current) {
+    inputRouterRef.current = new InputRouter({
+      startNote: (key) => engine.playNote(key),
+      stopNote: (key) => engine.stopNote(key),
+      noteDown: (event) => teachInputRef.current(event),
+    });
+  }
+  const inputRouter = inputRouterRef.current;
+
+  teachInputRef.current = (event) => {
+    if (modeRef.current !== "teach") return;
+    const current = teachSessionRef.current;
+    const next = scoreTeachNote(current, event.key, event.source, event.atMs);
+    if (next !== current) commitTeachSession(next);
+  };
+
+  const applyTeachLesson = useCallback((lesson: TeachLesson) => {
+    inputRouter.releaseAll();
+    scorePlayer.stop();
+    engine.stopAllNotes();
+    applySa(lesson.sa);
+    commitTeachSession(loadTeachLesson(lesson));
+  }, [applySa, commitTeachSession, inputRouter]);
+
+  const clearTeachLesson = useCallback(() => {
+    inputRouter.releaseAll();
+    engine.stopAllNotes();
+    commitTeachSession(emptyTeachSession());
+  }, [commitTeachSession, inputRouter]);
 
   // Engine drives visuals + lock state; keep React in sync.
   useEffect(() => {
@@ -73,15 +131,17 @@ export default function App() {
     engine.preload();
   }, []);
 
-  // Register WebMCP tools after the keyboard + audio module exist. The
-  // registration is a page-lifetime singleton: StrictMode's simulated
-  // unmount must not abort it (that used to leave zero tools registered).
+  // Register only the catalog for the human-selected mode.
   useEffect(() => {
     let cancelled = false;
-    ensureWebMCPTools({
+    setWebMCPMode(mode, {
+      getMode: () => modeRef.current,
       getSa: () => saRef.current,
       applySa,
       applyScore,
+      applyTeachLesson,
+      getTeachSession: () => teachSessionRef.current,
+      clearTeachLesson,
     }).then(({ status }) => {
       if (status.state === "error") {
         console.error("WebMCP registration failed:", status.message);
@@ -91,7 +151,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, [applySa, applyScore]);
+  }, [applySa, applyScore, applyTeachLesson, clearTeachLesson, mode]);
 
   // JSON editor tab handshake: editor pulls current score, posts edits back.
   useEffect(() => {
@@ -108,7 +168,7 @@ export default function App() {
       } else if (d.type === "harmonium-score" && typeof d.text === "string") {
         try {
           const score = parseScore(d.text);
-          applyScore(score, d.text);
+          applyScore(score, { sourceText: d.text, syncEditor: false });
           setFlash("Score loaded from editor tab");
         } catch (e) {
           setFlash(`Score rejected: ${(e as Error).message}`);
@@ -126,10 +186,39 @@ export default function App() {
     return () => window.clearTimeout(t);
   }, [flash]);
 
-  const playNote = useCallback((key: number) => engine.playNote(key), []);
-  const stopNote = useCallback((key: number) => engine.stopNote(key), []);
-  const oct = useComputerKeys(playNote, stopNote);
+  const computerNoteDown = useCallback(
+    (key: number, sourceId: string) => {
+      inputRouter.press(sourceId, key, "computer", performance.now());
+    },
+    [inputRouter],
+  );
+  const onscreenNoteDown = useCallback(
+    (key: number, sourceId: string) => inputRouter.press(sourceId, key, "onscreen", performance.now()),
+    [inputRouter],
+  );
+  const noteUp = useCallback((sourceId: string) => inputRouter.release(sourceId), [inputRouter]);
+  const oct = useComputerKeys(computerNoteDown, noteUp);
   useEffect(() => setOctave(oct), [oct]);
+
+  useEffect(() => () => inputRouter.releaseAll(), [inputRouter]);
+
+  useEffect(() => {
+    if (teachSession.phase !== "countIn" && teachSession.phase !== "running") return;
+    let raf = 0;
+    let disposed = false;
+    const tick = () => {
+      if (disposed) return;
+      const current = teachSessionRef.current;
+      const next = advanceTeachSession(current, performance.now());
+      if (next !== current) commitTeachSession(next);
+      raf = requestAnimationFrame(tick);
+    };
+    raf = requestAnimationFrame(tick);
+    return () => {
+      disposed = true;
+      cancelAnimationFrame(raf);
+    };
+  }, [commitTeachSession, teachSession.phase]);
 
   const handleUnlock = async () => {
     try {
@@ -166,6 +255,7 @@ export default function App() {
   };
 
   const handlePlayToggle = () => {
+    if (modeRef.current !== "play") return;
     if (scorePlaying) {
       scorePlayer.stop();
       engine.stopAllNotes();
@@ -180,12 +270,32 @@ export default function App() {
     }
   };
 
+  const handleTeachStart = useCallback(() => {
+    if (!unlockedRef.current || !teachSessionRef.current.lesson) return;
+    inputRouter.releaseAll();
+    engine.stopAllNotes();
+    commitTeachSession(startTeachSession(teachSessionRef.current, performance.now()));
+  }, [commitTeachSession, inputRouter]);
+
+  const handleMode = useCallback((nextMode: AppMode) => {
+    if (nextMode === modeRef.current) return;
+    inputRouter.releaseAll();
+    scorePlayer.stop();
+    engine.stopAllNotes();
+    if (modeRef.current === "teach") {
+      commitTeachSession(resetTeachSession(teachSessionRef.current));
+    }
+    modeRef.current = nextMode;
+    setMode(nextMode);
+  }, [commitTeachSession, inputRouter]);
+
   // Space toggles play/stop for the loaded score (outside text fields).
   const playToggleRef = useRef(handlePlayToggle);
   playToggleRef.current = handlePlayToggle;
   useEffect(() => {
     const onKeyDown = (e: KeyboardEvent) => {
       if (e.code !== "Space" || e.repeat || e.metaKey || e.ctrlKey || e.altKey) return;
+      if (modeRef.current !== "play") return;
       const target = e.target as HTMLElement | null;
       if (target && target.closest("input, textarea, select")) return;
       if (!unlockedRef.current) return;
@@ -242,36 +352,55 @@ export default function App() {
         </div>
       )}
 
-      <TopBar
-        sa={sa}
-        onSa={applySa}
-        notation={notation}
-        onNotation={setNotation}
-        onEditJson={handleEditJson}
-        onExportJson={handleExportJson}
-        status={status}
-      />
+      {mode === "play" ? (
+        <>
+          <TopBar
+            sa={sa}
+            onSa={applySa}
+            notation={notation}
+            onNotation={setNotation}
+            onEditJson={handleEditJson}
+            onExportJson={handleExportJson}
+            status={status}
+            mode={mode}
+            onMode={handleMode}
+          />
 
-      {flash && (
-        <p className="flash" role="status">
-          {flash}
-        </p>
+          {flash && (
+            <p className="flash" role="status">
+              {flash}
+            </p>
+          )}
+
+          <main className="stage">
+            <Visualizer score={parsedScore} playing={scorePlaying} />
+            <div className="play-row">
+              <PlayButton playing={scorePlaying} unlocked={unlocked} onToggle={handlePlayToggle} />
+            </div>
+          </main>
+
+          <Keyboard
+            saPitchClass={saPc}
+            notation={notation}
+            activeKeys={activeKeys}
+            onDown={onscreenNoteDown}
+            onUp={noteUp}
+          />
+        </>
+      ) : (
+        <TeachMode
+          session={teachSession}
+          unlocked={unlocked}
+          activeKeys={activeKeys}
+          notation={notation}
+          octave={octave}
+          webmcpStatus={webmcpNote ?? "agent tools ready"}
+          onMode={handleMode}
+          onStart={handleTeachStart}
+          onDown={onscreenNoteDown}
+          onUp={noteUp}
+        />
       )}
-
-      <main className="stage">
-        <Visualizer score={parsedScore} playing={scorePlaying} />
-        <div className="play-row">
-          <PlayButton playing={scorePlaying} unlocked={unlocked} onToggle={handlePlayToggle} />
-        </div>
-      </main>
-
-      <Keyboard
-        saPitchClass={saPc}
-        notation={notation}
-        activeKeys={activeKeys}
-        onDown={playNote}
-        onUp={stopNote}
-      />
     </div>
   );
 }

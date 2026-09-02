@@ -28,7 +28,10 @@ const MAX_OCT = 2;
  * always releases the exact key that keydown started, even across octave
  * shifts. Ignores auto-repeat and typing inside form fields.
  */
-export function useComputerKeys(onDown: (key: number) => void, onUp: (key: number) => void): number {
+export function useComputerKeys(
+  onDown: (key: number, sourceId: string) => void,
+  onUp: (sourceId: string) => void,
+): number {
   const [octave, setOctave] = useState(0);
   const heldRef = useRef(new Map<string, number>());
 
@@ -53,18 +56,18 @@ export function useComputerKeys(onDown: (key: number) => void, onUp: (key: numbe
       const key = base() + offset;
       if (key < 0 || key > 38) return;
       heldRef.current.set(e.code, key);
-      onDown(key);
+      onDown(key, `keyboard:${e.code}`);
     };
 
     const onKeyUp = (e: KeyboardEvent) => {
       const key = heldRef.current.get(e.code);
       if (key === undefined) return;
       heldRef.current.delete(e.code);
-      onUp(key);
+      onUp(`keyboard:${e.code}`);
     };
 
     const onBlur = () => {
-      for (const key of heldRef.current.values()) onUp(key);
+      for (const code of heldRef.current.keys()) onUp(`keyboard:${code}`);
       heldRef.current.clear();
     };
 

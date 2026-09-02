@@ -1,6 +1,7 @@
 import { SA_OPTIONS } from "../pitch";
-import type { Notation } from "../types";
+import type { AppMode, Notation } from "../types";
 import { IconEditJson, IconExport } from "./Icons";
+import { ModeSwitch } from "./ModeSwitch";
 
 interface TopBarProps {
   sa: string;
@@ -10,9 +11,21 @@ interface TopBarProps {
   onEditJson: () => void;
   onExportJson: () => void;
   status: string;
+  mode: AppMode;
+  onMode: (mode: AppMode) => void;
 }
 
-export function TopBar({ sa, onSa, notation, onNotation, onEditJson, onExportJson, status }: TopBarProps) {
+export function TopBar({
+  sa,
+  onSa,
+  notation,
+  onNotation,
+  onEditJson,
+  onExportJson,
+  status,
+  mode,
+  onMode,
+}: TopBarProps) {
   return (
     <header className="topbar">
       <div className="brand">
@@ -20,6 +33,7 @@ export function TopBar({ sa, onSa, notation, onNotation, onEditJson, onExportJso
         <span className="status">{status}</span>
       </div>
       <nav className="topbar-actions" aria-label="Score and view controls">
+        <ModeSwitch mode={mode} onMode={onMode} />
         <button
           type="button"
           className="icon-btn"

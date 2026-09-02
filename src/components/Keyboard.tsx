@@ -6,8 +6,8 @@ interface KeyboardProps {
   saPitchClass: number;
   notation: Notation;
   activeKeys: Set<number>;
-  onDown: (key: number) => boolean;
-  onUp: (key: number) => void;
+  onDown: (key: number, sourceId: string) => boolean;
+  onUp: (sourceId: string) => void;
 }
 
 export function Keyboard({ saPitchClass, notation, activeKeys, onDown, onUp }: KeyboardProps) {
@@ -31,20 +31,18 @@ export function Keyboard({ saPitchClass, notation, activeKeys, onDown, onUp }: K
   const handlers = (key: number) => ({
     onClick: (e: React.MouseEvent<HTMLButtonElement>) => {
       if (e.detail !== 0) return;
-      if (!onDown(key)) return;
-      window.setTimeout(() => onUp(key), 350);
+      const sourceId = `onscreen:${key}`;
+      if (!onDown(key, sourceId)) return;
+      window.setTimeout(() => onUp(sourceId), 350);
     },
     onPointerDown: (e: React.PointerEvent<HTMLButtonElement>) => {
       e.preventDefault();
-      const el = e.currentTarget;
-      if (el.hasPointerCapture(e.pointerId)) el.releasePointerCapture(e.pointerId);
-      onDown(key);
+      e.currentTarget.setPointerCapture(e.pointerId);
+      onDown(key, `pointer:${e.pointerId}`);
     },
-    onPointerUp: () => onUp(key),
-    onPointerCancel: () => onUp(key),
-    onPointerLeave: () => {
-      if (activeKeys.has(key)) onUp(key);
-    },
+    onPointerUp: (e: React.PointerEvent<HTMLButtonElement>) => onUp(`pointer:${e.pointerId}`),
+    onPointerCancel: (e: React.PointerEvent<HTMLButtonElement>) => onUp(`pointer:${e.pointerId}`),
+    onLostPointerCapture: (e: React.PointerEvent<HTMLButtonElement>) => onUp(`pointer:${e.pointerId}`),
   });
 
   return (

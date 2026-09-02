@@ -13,7 +13,7 @@
     "preview": "vite preview",
     "check": "tsx scripts/verify-keys.ts",
     "typecheck": "tsc --noEmit",
-    "test": "tsx --test src/pitch.test.ts src/score.test.ts"
+    "test": "tsx --test src/pitch.test.ts src/score.test.ts src/teachSession.test.ts src/inputRouter.test.ts src/webmcp.test.ts"
   },
   "dependencies": {
     "react": "^18.3.1",

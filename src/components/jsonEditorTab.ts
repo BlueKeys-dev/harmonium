@@ -36,12 +36,21 @@ function script(): string {
     var demo = document.getElementById("demo");
     var apply = document.getElementById("apply");
     var DEMO = ${DEMO_JSON};
+    var dirty = false;
+    var initialized = false;
 
     window.addEventListener("message", function (e) {
       if (e.origin !== location.origin) return;
       var d = e.data || {};
       if (d.type === "harmonium-score-init" && typeof d.text === "string") {
-        ta.value = d.text;
+        if (!initialized || !dirty) {
+          if (ta.value !== d.text) ta.value = d.text;
+          dirty = false;
+          initialized = true;
+          err.textContent = "";
+        } else if (ta.value !== d.text) {
+          err.textContent = "The harmonium score changed; your unsaved draft was kept.";
+        }
       }
     });
     if (window.opener) {
@@ -50,6 +59,7 @@ function script(): string {
 
     demo.addEventListener("click", function () {
       ta.value = DEMO;
+      dirty = true;
       err.textContent = "";
     });
 
@@ -84,11 +94,15 @@ function script(): string {
       if (window.opener) {
         window.opener.postMessage({ type: "harmonium-score", text: ta.value }, location.origin);
       }
+      dirty = false;
       apply.textContent = "Applied";
       setTimeout(function () { apply.textContent = "Apply to harmonium"; }, 1200);
     });
 
-    ta.addEventListener("input", function () { err.textContent = ""; });
+    ta.addEventListener("input", function () {
+      dirty = true;
+      err.textContent = "";
+    });
   `;
 }
 

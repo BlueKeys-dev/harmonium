@@ -7,7 +7,8 @@
   `window.__harmonium` engine/player handle.
 - `src/App.tsx` owns page state and connects UI input, score playback, audio,
   the JSON editor, and WebMCP status. Successfully started agent scores are
-  committed here so the visualizer, export, tonic, and editor stay synchronized.
+  committed here so the visualizer, export, tonic, and editor stay synchronized;
+  it also owns the human-selected Play/Teach mode and Teach session lifecycle.
 
 ## Ownership
 
@@ -17,16 +18,25 @@
   and demo score.
 - `src/scorePlayer.ts`: transactional Tone Transport/Part scheduling and
   synchronized visual callbacks; callers publish UI state after startup.
+- `src/teachSession.ts`: strict beat-based lesson validation and pure Teach
+  count-in, grading, miss, restart, clear, and progress state transitions.
+- `src/inputRouter.ts`: source-aware computer/pointer note ownership so one
+  input cannot release a reed that another input still holds.
 - `src/pitch.ts`: key/MIDI/Western/Sargam conversion and keyboard layout.
 - `src/webmcp.ts`: five page tools that reuse the audio engine and score player;
-  playback tools bound public work and accept hosts with or without per-call
-  cancellation signals, then forward successfully started scores to App state.
+  Teach Mode replaces them with three lesson tools through generation-safe,
+  abortable registration. Tools accept hosts with or without per-call signals.
 - `src/components/Keyboard.tsx`: pointer keyboard layout and interaction.
 - `src/hooks/useComputerKeys.ts`: physical-key mapping and octave shifts.
 - `src/components/Visualizer.tsx`: continuously rendered Canvas2D score preview
   and playback animation.
+- `src/components/TeachVisualizer.tsx`: dedicated beat-clock piano roll with
+  pending, correct, missed, wrong-input, and active-key feedback.
+- `src/components/TeachMode.tsx`: focused Teach header, progress, count-in,
+  visualizer, accessible announcements, and clickable keyboard composition.
 - `src/components/jsonEditorTab.ts`: same-origin popup editor and `postMessage`
-  handshake with `App.tsx`.
+  handshake with `App.tsx`; self-echoes are suppressed and unsaved drafts are
+  preserved when an external score arrives.
 - `src/index.css`: layout, responsive behavior, and visual effects.
 
 ## Assets and deployment
@@ -48,7 +58,7 @@
 ## Verification routes
 
 - `npm run typecheck`: TypeScript without emit.
-- `npm test`: pitch and score unit tests.
+- `npm test`: pitch, score, teach, input-router, and WebMCP registrar unit tests.
 - `npm run check`: keyboard layout assertions.
 - `npm run build`: typecheck plus production bundle.
 - `npm run dev`: local runtime smoke check.
@@ -60,6 +70,8 @@
   tests, keyboard rendering, score validation, and WebMCP schemas.
 - Playback changes: start in `src/audioEngine.ts`; inspect `scorePlayer.ts`,
   `App.tsx`, and `webmcp.ts` callers.
+- Teach changes: start in `src/teachSession.ts`; inspect `inputRouter.ts`,
+  `TeachMode.tsx`, `TeachVisualizer.tsx`, `App.tsx`, and the Teach WebMCP tools.
 - Score-contract changes: start in `src/score.ts`; keep editor and WebMCP input
   boundaries aligned.
 - Rendering/GPU investigations: start in `src/components/Visualizer.tsx` and

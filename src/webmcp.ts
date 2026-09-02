@@ -15,6 +15,15 @@ import {
   westernToPitchClass,
   resolveKey,
 } from "./pitch";
+import {
+  MAX_TEACH_BEAT,
+  MAX_TEACH_NOTES,
+  getTeachProgress,
+  parseTeachLesson,
+  type TeachLesson,
+  type TeachSessionState,
+} from "./teachSession";
+import type { AppMode } from "./types";
 
 /**
  * In-page WebMCP tools. The page is the tool server: an agent visiting this
@@ -34,10 +43,14 @@ interface WebMCPRegistration {
   unregister: () => void;
 }
 
-interface RegisterDeps {
+export interface WebMCPDeps {
+  getMode: () => AppMode;
   getSa: () => string;
   applySa: (sa: string) => void;
   applyScore: (score: Score) => void;
+  applyTeachLesson: (lesson: TeachLesson) => void;
+  getTeachSession: () => TeachSessionState;
+  clearTeachLesson: () => void;
 }
 
 const LOCKED_MESSAGE =
@@ -48,7 +61,7 @@ const SARGAM_ENUM = [
   "komal Dha", "Dha", "komal Ni", "Ni",
 ];
 
-interface ModelContext {
+export interface ModelContext {
   registerTool: (tool: ToolDef, options?: { signal?: AbortSignal }) => Promise<void>;
 }
 
@@ -76,16 +89,16 @@ function clampDur(v: unknown): number {
   return Math.min(10, Math.max(0.1, v));
 }
 
-async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistration> {
-  const modelContext =
-    (document as unknown as { modelContext?: ModelContext }).modelContext ??
-    (navigator as unknown as { modelContext?: ModelContext }).modelContext;
-
-  if (!modelContext || typeof modelContext.registerTool !== "function") {
-    return { status: { state: "unavailable" }, unregister: () => {} };
-  }
-
-  const controller = new AbortController();
+async function registerWebMCPTools(
+  mode: AppMode,
+  deps: WebMCPDeps,
+  modelContext: ModelContext,
+  controller: AbortController,
+): Promise<WebMCPRegistration> {
+  const requireMode = (expected: AppMode, tool: string): Record<string, unknown> | null =>
+    deps.getMode() === expected
+      ? null
+      : fail(tool, `${expected === "teach" ? "Teach" : "Play"} Mode is no longer active.`);
 
   const playNoteTool: ToolDef = {
     name: "play_note",
@@ -114,6 +127,8 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
     execute: async (input, ctx) => {
       const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
       if (signal.aborted) return fail("play_note", "Tool call was aborted.");
+      const inactive = requireMode("play", "play_note");
+      if (inactive) return inactive;
       if (engine.lockState !== "unlocked") return fail("play_note", LOCKED_MESSAGE);
       const saPc = Math.max(0, westernToPitchClass(deps.getSa()));
       const key = resolveKey(input ?? {}, saPc);
@@ -201,6 +216,8 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
     execute: async (input, ctx) => {
       const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
       if (signal.aborted) return fail("play_score", "Tool call was aborted.");
+      const inactive = requireMode("play", "play_score");
+      if (inactive) return inactive;
       if (engine.lockState !== "unlocked") return fail("play_score", LOCKED_MESSAGE);
       let score: Score;
       try {
@@ -253,7 +270,11 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
       required: ["sa"],
     },
     annotations: { readOnlyHint: false },
-    execute: async (input) => {
+    execute: async (input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
+      if (signal.aborted) return fail("set_sa", "Tool call was aborted.");
+      const inactive = requireMode("play", "set_sa");
+      if (inactive) return inactive;
       const sa = String((input as { sa?: unknown })?.sa ?? "").trim().toUpperCase();
       if (westernToPitchClass(sa) < 0) {
         return fail("set_sa", `Invalid sa: use one of ${SA_OPTIONS.join(", ")}`);
@@ -268,7 +289,11 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
     description: "Stop all sounding reeds and any score playback on the visible keyboard.",
     inputSchema: { type: "object", properties: {} },
     annotations: { readOnlyHint: false },
-    execute: async () => {
+    execute: async (_input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
+      if (signal.aborted) return fail("stop", "Tool call was aborted.");
+      const inactive = requireMode("play", "stop");
+      if (inactive) return inactive;
       scorePlayer.stop();
       return ok("stop", { stopped: true });
     },
@@ -279,17 +304,108 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
     description: "Read the web-harmonium state: current Sa, audio lock, active keys, score playback.",
     inputSchema: { type: "object", properties: {} },
     annotations: { readOnlyHint: true },
-    execute: async () =>
-      ok("get_state", {
+    execute: async (_input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
+      if (signal.aborted) return fail("get_state", "Tool call was aborted.");
+      const inactive = requireMode("play", "get_state");
+      if (inactive) return inactive;
+      return ok("get_state", {
         sa: deps.getSa(),
         audioUnlocked: engine.lockState === "unlocked",
         audioSource: engine.source,
         activeKeys: engine.getActiveKeys(),
         scorePlaying: scorePlayer.isPlaying(),
-      }),
+      });
+    },
   };
 
-  const tools = [playNoteTool, playScoreTool, setSaTool, stopTool, getStateTool];
+  const loadLessonTool: ToolDef = {
+    name: "load_lesson",
+    description:
+      "Load a strict beat-based lesson into Teach Mode. This replaces the current lesson but never starts it; the human presses Start.",
+    inputSchema: {
+      type: "object",
+      properties: {
+        title: { type: "string", minLength: 1, maxLength: 80 },
+        sa: { type: "string", enum: [...SA_OPTIONS] },
+        bpm: { type: "integer", minimum: 40, maximum: 240 },
+        notes: {
+          type: "array",
+          minItems: 1,
+          maxItems: MAX_TEACH_NOTES,
+          items: {
+            type: "object",
+            properties: {
+              key: { type: "integer", minimum: 0, maximum: 38 },
+              startBeat: { type: "number", minimum: 0, maximum: MAX_TEACH_BEAT },
+              durationBeats: { type: "number", minimum: 0.125, maximum: 16 },
+            },
+            required: ["key", "startBeat", "durationBeats"],
+          },
+        },
+      },
+      required: ["bpm", "notes"],
+    },
+    annotations: { readOnlyHint: false },
+    execute: async (input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
+      if (signal.aborted) return fail("load_lesson", "Tool call was aborted.");
+      const inactive = requireMode("teach", "load_lesson");
+      if (inactive) return inactive;
+      let lesson: TeachLesson;
+      try {
+        lesson = parseTeachLesson(input, deps.getSa(), createLessonId());
+      } catch (e) {
+        return fail("load_lesson", `Invalid lesson: ${(e as Error).message}`);
+      }
+      if (signal.aborted) return fail("load_lesson", "Tool call was aborted.");
+      deps.applyTeachLesson(lesson);
+      return ok("load_lesson", {
+        lessonId: lesson.id,
+        title: lesson.title,
+        sa: lesson.sa,
+        bpm: lesson.bpm,
+        noteCount: lesson.notes.length,
+        durationBeats: lesson.durationBeats,
+        phase: "ready",
+      });
+    },
+  };
+
+  const getLessonProgressTool: ToolDef = {
+    name: "get_lesson_progress",
+    description: "Read Teach Mode lesson timing, accuracy, wrong-note count, and per-note results.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: true },
+    execute: async (_input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
+      if (signal.aborted) return fail("get_lesson_progress", "Tool call was aborted.");
+      const inactive = requireMode("teach", "get_lesson_progress");
+      if (inactive) return inactive;
+      return ok("get_lesson_progress", {
+        ...getTeachProgress(deps.getTeachSession(), performance.now()),
+      });
+    },
+  };
+
+  const clearLessonTool: ToolDef = {
+    name: "clear_lesson",
+    description: "Stop and remove the current Teach Mode lesson. The page remains in Teach Mode.",
+    inputSchema: { type: "object", properties: {} },
+    annotations: { readOnlyHint: false },
+    execute: async (_input, ctx) => {
+      const signal = ctx?.signal ?? NEVER_ABORTED_SIGNAL;
+      if (signal.aborted) return fail("clear_lesson", "Tool call was aborted.");
+      const inactive = requireMode("teach", "clear_lesson");
+      if (inactive) return inactive;
+      deps.clearTeachLesson();
+      return ok("clear_lesson", { cleared: true, phase: "empty" });
+    },
+  };
+
+  const tools = mode === "play"
+    ? [playNoteTool, playScoreTool, setSaTool, stopTool, getStateTool]
+    : [loadLessonTool, getLessonProgressTool, clearLessonTool];
   const registered: string[] = [];
 
   try {
@@ -316,38 +432,70 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
   };
 }
 
-let pendingRegistration: Promise<WebMCPRegistration> | null = null;
-let unregisterCurrent = () => {};
-let moduleDisposed = false;
+let lessonSequence = 0;
 
-/** Register once for this document, even when React StrictMode re-runs effects. */
-export function ensureWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistration> {
-  if (!pendingRegistration) {
-    pendingRegistration = registerWebMCPTools(deps)
-      .then((registration): WebMCPRegistration => {
-        if (moduleDisposed) {
-          registration.unregister();
-          return { status: { state: "unavailable" }, unregister: () => {} };
-        }
-        unregisterCurrent = registration.unregister;
-        return registration;
-      })
-      .catch((e: unknown): WebMCPRegistration => {
-        pendingRegistration = null;
-        return {
-          status: { state: "error", message: String((e as Error)?.message ?? e) },
-          unregister: () => {},
-        };
-      });
+function createLessonId(): string {
+  lessonSequence += 1;
+  return typeof crypto !== "undefined" && typeof crypto.randomUUID === "function"
+    ? crypto.randomUUID()
+    : `lesson-${Date.now()}-${lessonSequence}`;
+}
+
+function currentModelContext(): ModelContext | null {
+  const context =
+    (document as unknown as { modelContext?: ModelContext }).modelContext ??
+    (navigator as unknown as { modelContext?: ModelContext }).modelContext;
+  return context && typeof context.registerTool === "function" ? context : null;
+}
+
+export class WebMCPRegistrar {
+  private generation = 0;
+  private controller: AbortController | null = null;
+  private disposed = false;
+
+  async setMode(
+    mode: AppMode,
+    deps: WebMCPDeps,
+    modelContext: ModelContext | null = currentModelContext(),
+  ): Promise<WebMCPRegistration> {
+    const generation = ++this.generation;
+    this.controller?.abort();
+    const controller = new AbortController();
+    this.controller = controller;
+    if (!modelContext) {
+      return { status: { state: "unavailable" }, unregister: () => controller.abort() };
+    }
+
+    const registration = await registerWebMCPTools(mode, deps, modelContext, controller);
+    if (this.disposed || generation !== this.generation) {
+      registration.unregister();
+      return { status: { state: "unavailable" }, unregister: () => {} };
+    }
+    return registration;
   }
-  return pendingRegistration;
+
+  dispose(): void {
+    this.disposed = true;
+    this.generation += 1;
+    this.controller?.abort();
+    this.controller = null;
+  }
+}
+
+const webmcpRegistrar = new WebMCPRegistrar();
+
+/** Replace the registered catalog atomically when the human changes mode. */
+export function setWebMCPMode(mode: AppMode, deps: WebMCPDeps): Promise<WebMCPRegistration> {
+  return webmcpRegistrar.setMode(mode, deps).catch((e: unknown): WebMCPRegistration => ({
+    status: { state: "error", message: String((e as Error)?.message ?? e) },
+    unregister: () => {},
+  }));
 }
 
 // Vite replaces modules without unloading the page. Dispose only for HMR;
 // React component cleanup must leave page-lifetime tools registered.
 if (import.meta.hot) {
   import.meta.hot.dispose(() => {
-    moduleDisposed = true;
-    unregisterCurrent();
+    webmcpRegistrar.dispose();
   });
 }
