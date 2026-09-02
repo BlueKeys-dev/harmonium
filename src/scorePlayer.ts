@@ -31,12 +31,11 @@ export class ScorePlayer {
    * Play a validated score on the audio clock (Tone.Transport), lighting keys
    * through Tone.Draw so visuals match the sound.
    */
-  play(score: Score, applySa: (sa: string) => void): { events: number; duration: number } {
+  play(score: Score): { events: number; duration: number } {
     if (engine.lockState !== "unlocked") {
       throw new Error("Audio locked: the human must tap 'Tap to start' in the page first");
     }
     this.stop();
-    if (score.sa) applySa(score.sa);
 
     const transport = Tone.getTransport();
     transport.stop();
@@ -45,23 +44,41 @@ export class ScorePlayer {
     const draw = Tone.getDraw();
     const gen = ++this.generation;
     const live = () => gen === this.generation;
-    this.part = new Tone.Part((time, ev) => {
-      engine.triggerAt(ev.key, ev.dur, time);
-      draw.schedule(() => {
-        if (live()) engine.setKeyActive(ev.key, true);
-      }, time);
-      draw.schedule(() => {
-        if (live()) engine.setKeyActive(ev.key, false);
-      }, time + ev.dur);
-    }, score.events.map((e) => ({ time: e.t, key: e.key, note: e.note, dur: e.dur })));
-
     const total = scoreDuration(score);
-    this.endId = transport.scheduleOnce((time) => {
-      draw.schedule(() => this.stop(), time);
-    }, total + 0.02);
+    const started = (() => {
+      let part: Tone.Part | null = null;
+      let endId: number | null = null;
+      try {
+        part = new Tone.Part((time, ev) => {
+          engine.triggerAt(ev.key, ev.dur, time);
+          draw.schedule(() => {
+            if (live()) engine.setKeyActive(ev.key, true);
+          }, time);
+          draw.schedule(() => {
+            if (live()) engine.setKeyActive(ev.key, false);
+          }, time + ev.dur);
+        }, score.events.map((e) => ({ time: e.t, key: e.key, note: e.note, dur: e.dur })));
 
-    this.part.start(0);
-    transport.start();
+        endId = transport.scheduleOnce((time) => {
+          draw.schedule(() => this.stop(), time);
+        }, total + 0.02);
+        part.start(0);
+        transport.start();
+        return { part, endId };
+      } catch (error) {
+        part?.dispose();
+        if (endId !== null) transport.clear(endId);
+        transport.stop();
+        transport.cancel(0);
+        draw.cancel();
+        engine.stopAllNotes();
+        this.generation++;
+        throw error;
+      }
+    })();
+
+    this.part = started.part;
+    this.endId = started.endId;
     this.setPlaying(true);
     return { events: score.events.length, duration: total };
   }

@@ -37,6 +37,7 @@ interface WebMCPRegistration {
 interface RegisterDeps {
   getSa: () => string;
   applySa: (sa: string) => void;
+  applyScore: (score: Score) => void;
 }
 
 const LOCKED_MESSAGE =
@@ -209,7 +210,7 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
       }
       let summary: { events: number; duration: number };
       try {
-        summary = scorePlayer.play(score, deps.applySa);
+        summary = scorePlayer.play(score);
       } catch (e) {
         return fail("play_score", `Could not play score: ${(e as Error).message}`);
       }
@@ -217,7 +218,21 @@ async function registerWebMCPTools(deps: RegisterDeps): Promise<WebMCPRegistrati
         scorePlayer.stop();
         return fail("play_score", "Tool call was aborted.");
       }
-      signal.addEventListener("abort", () => scorePlayer.stop(), { once: true });
+      try {
+        deps.applyScore(score);
+      } catch (e) {
+        scorePlayer.stop();
+        return fail("play_score", `Could not apply score: ${(e as Error).message}`);
+      }
+
+      const onAbort = () => scorePlayer.stop();
+      let unsubscribe = () => {};
+      unsubscribe = scorePlayer.subscribe((playing) => {
+        if (playing) return;
+        signal.removeEventListener("abort", onAbort);
+        unsubscribe();
+      });
+      signal.addEventListener("abort", onAbort, { once: true });
       return ok("play_score", {
         events: summary.events,
         durationSeconds: Math.round(summary.duration * 100) / 100,

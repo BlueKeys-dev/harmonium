@@ -34,6 +34,26 @@ export default function App() {
   unlockedRef.current = unlocked;
   const editorWindowRef = useRef<Window | null>(null);
 
+  const applySa = useCallback((next: string) => {
+    saRef.current = next;
+    setSa(next);
+  }, []);
+
+  const applyScore = useCallback((score: Score, sourceText?: string) => {
+    const text = sourceText ?? JSON.stringify(score, null, 2);
+    const editor = editorWindowRef.current;
+    if (editor && !editor.closed) {
+      editor.postMessage(
+        { type: "harmonium-score-init", text },
+        window.location.origin,
+      );
+    }
+
+    scoreTextRef.current = text;
+    setScoreText(text);
+    if (score.sa) applySa(score.sa);
+  }, [applySa]);
+
   // Engine drives visuals + lock state; keep React in sync.
   useEffect(() => {
     const sync = () => {
@@ -60,7 +80,8 @@ export default function App() {
     let cancelled = false;
     ensureWebMCPTools({
       getSa: () => saRef.current,
-      applySa: (next) => setSa(next),
+      applySa,
+      applyScore,
     }).then(({ status }) => {
       if (status.state === "error") {
         console.error("WebMCP registration failed:", status.message);
@@ -70,7 +91,7 @@ export default function App() {
     return () => {
       cancelled = true;
     };
-  }, []);
+  }, [applySa, applyScore]);
 
   // JSON editor tab handshake: editor pulls current score, posts edits back.
   useEffect(() => {
@@ -87,8 +108,7 @@ export default function App() {
       } else if (d.type === "harmonium-score" && typeof d.text === "string") {
         try {
           const score = parseScore(d.text);
-          setScoreText(d.text);
-          if (score.sa) setSa(score.sa);
+          applyScore(score, d.text);
           setFlash("Score loaded from editor tab");
         } catch (e) {
           setFlash(`Score rejected: ${(e as Error).message}`);
@@ -97,7 +117,7 @@ export default function App() {
     };
     window.addEventListener("message", onMessage);
     return () => window.removeEventListener("message", onMessage);
-  }, []);
+  }, [applyScore]);
 
   // Transient status flashes.
   useEffect(() => {
@@ -153,7 +173,8 @@ export default function App() {
     }
     try {
       const score = parseScore(scoreText);
-      scorePlayer.play(score, (next) => setSa(next));
+      scorePlayer.play(score);
+      if (score.sa) applySa(score.sa);
     } catch (e) {
       setFlash(`Score error: ${(e as Error).message}`);
     }
@@ -223,7 +244,7 @@ export default function App() {
 
       <TopBar
         sa={sa}
-        onSa={setSa}
+        onSa={applySa}
         notation={notation}
         onNotation={setNotation}
         onEditJson={handleEditJson}

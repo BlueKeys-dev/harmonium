@@ -6,7 +6,8 @@
 - `src/main.tsx` mounts the single React root and exposes the debug-only
   `window.__harmonium` engine/player handle.
 - `src/App.tsx` owns page state and connects UI input, score playback, audio,
-  the JSON editor, and WebMCP status.
+  the JSON editor, and WebMCP status. Successfully started agent scores are
+  committed here so the visualizer, export, tonic, and editor stay synchronized.
 
 ## Ownership
 
@@ -14,12 +15,12 @@
   active-key ownership, safe source upgrades, and Tone output.
 - `src/score.ts`: canonical bounded score types, parsing, validation, duration,
   and demo score.
-- `src/scorePlayer.ts`: Tone Transport/Part scheduling and synchronized visual
-  callbacks.
+- `src/scorePlayer.ts`: transactional Tone Transport/Part scheduling and
+  synchronized visual callbacks; callers publish UI state after startup.
 - `src/pitch.ts`: key/MIDI/Western/Sargam conversion and keyboard layout.
 - `src/webmcp.ts`: five page tools that reuse the audio engine and score player;
   playback tools bound public work and accept hosts with or without per-call
-  cancellation signals.
+  cancellation signals, then forward successfully started scores to App state.
 - `src/components/Keyboard.tsx`: pointer keyboard layout and interaction.
 - `src/hooks/useComputerKeys.ts`: physical-key mapping and octave shifts.
 - `src/components/Visualizer.tsx`: continuously rendered Canvas2D score preview
