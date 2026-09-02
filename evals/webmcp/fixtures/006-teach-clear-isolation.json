@@ -1,0 +1,33 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "I'm finished with this practice exercise. Clear it so I can start fresh."
+    }
+  ],
+  "applicationState": {
+    "mode": "teach",
+    "lessonPhase": "complete",
+    "tools": [
+      {
+        "name": "load_lesson",
+        "description": "Create or replace the visible Teach Mode exercise in a ready state. Use beat-timed notes; after success, the learner starts it from the page."
+      },
+      {
+        "name": "get_lesson_progress",
+        "description": "Read the visible Teach Mode result summary and one bounded page of note outcomes. Use nextCursor to continue when more results remain."
+      },
+      {
+        "name": "clear_lesson",
+        "description": "Clear the visible Teach Mode exercise and return the page to its empty lesson state. Use when the learner wants a fresh exercise.",
+        "inputSchema": { "type": "object", "properties": {} }
+      }
+    ]
+  },
+  "expectedCall": [
+    {
+      "functionName": "clear_lesson",
+      "arguments": {}
+    }
+  ]
+}

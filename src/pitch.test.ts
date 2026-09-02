@@ -1,6 +1,6 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { KEY_COUNT, isBlackKey, keyToWestern, sargamForKey, keyForSargam, resolveKey } from "./pitch";
+import { KEY_COUNT, isBlackKey, keyToWestern, sargamForKey, keyForSargam, resolveKey, westernToKey } from "./pitch";
 
 test("keyboard layout is 39 keys, 23 white, 16 black", () => {
   const whites = Array.from({ length: KEY_COUNT }, (_, k) => !isBlackKey(k)).filter(Boolean).length;
@@ -12,6 +12,15 @@ test("keys span C3 to D6 with key 12 = C4", () => {
   assert.equal(keyToWestern(0), "C3");
   assert.equal(keyToWestern(12), "C4");
   assert.equal(keyToWestern(38), "D6");
+});
+
+test("westernToKey resolves exact in-range notes", () => {
+  assert.equal(westernToKey("C3"), 0);
+  assert.equal(westernToKey(" c4 "), 12);
+  assert.equal(westernToKey("F#5"), 30);
+  assert.equal(westernToKey("D6"), 38);
+  assert.equal(westernToKey("Db4"), null);
+  assert.equal(westernToKey("E6"), null);
 });
 
 test("sargam labels follow the movable Sa", () => {

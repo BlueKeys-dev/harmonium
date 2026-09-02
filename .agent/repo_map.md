@@ -15,7 +15,8 @@
 - `src/audioEngine.ts`: canonical note playback, sample preload/fallback,
   active-key ownership, safe source upgrades, and Tone output.
 - `src/score.ts`: canonical bounded score types, parsing, validation, duration,
-  and demo score.
+  and demo score; WebMCP uses its strict all-or-nothing object parser while the
+  human JSON editor keeps the forgiving text parser.
 - `src/scorePlayer.ts`: transactional Tone Transport/Part scheduling and
   synchronized visual callbacks; callers publish UI state after startup.
 - `src/teachSession.ts`: strict beat-based lesson validation and pure Teach
@@ -25,7 +26,8 @@
 - `src/pitch.ts`: key/MIDI/Western/Sargam conversion and keyboard layout.
 - `src/webmcp.ts`: five page tools that reuse the audio engine and score player;
   Teach Mode replaces them with three lesson tools through generation-safe,
-  abortable registration. Tools accept hosts with or without per-call signals.
+  abortable registration. Tools accept hosts with or without per-call signals,
+  await visible UI commits, and paginate large Teach progress responses.
 - `src/components/Keyboard.tsx`: pointer keyboard layout and interaction.
 - `src/hooks/useComputerKeys.ts`: physical-key mapping and octave shifts.
 - `src/components/Visualizer.tsx`: continuously rendered Canvas2D score preview
@@ -62,7 +64,8 @@
 - `npm run check`: keyboard layout assertions.
 - `npm run build`: typecheck plus production bundle.
 - `npm run dev`: local runtime smoke check.
-- `evals/webmcp/fixtures/`: manual WebMCP isolation and journey fixtures.
+- `evals/webmcp/fixtures/`: self-contained Play and Teach isolation/journey
+  fixtures with each mode's complete competing tool catalog.
 
 ## Change routing
 

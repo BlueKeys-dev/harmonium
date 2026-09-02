@@ -46,6 +46,17 @@ export function keyToWestern(key: number): string {
   return midiToWestern(keyToMidi(key));
 }
 
+/** Resolve an exact Western note with octave (for example C4 or F#5) to a key. */
+export function westernToKey(name: string): number | null {
+  const match = name.trim().toUpperCase().match(/^([A-G]#?)(-?\d)$/);
+  if (!match) return null;
+  const pitchClass = SHARP_NAMES.indexOf(match[1] as WesternName);
+  if (pitchClass < 0) return null;
+  const midi = (Number(match[2]) + 1) * 12 + pitchClass;
+  const key = midi - MIDI_START;
+  return Number.isInteger(key) && key >= 0 && key < KEY_COUNT ? key : null;
+}
+
 export function sargamForKey(key: number, saPitchClass: number): SargamName {
   const degree = (((keyToMidi(key) % 12) - saPitchClass) % 12 + 12) % 12;
   return SARGAM_DEGREES[degree];

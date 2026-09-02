@@ -1,0 +1,52 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "Set up a beginner Teach Mode exercise at 120 BPM with C4, D4, and E4 on consecutive beats. Make each bar one beat long."
+    }
+  ],
+  "applicationState": {
+    "mode": "teach",
+    "lessonPhase": "empty",
+    "tools": [
+      {
+        "name": "load_lesson",
+        "description": "Create or replace the visible Teach Mode exercise in a ready state. Use beat-timed notes; after success, the learner starts it from the page.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "title": { "type": "string", "description": "Short learner-facing exercise name." },
+            "sa": { "type": "string", "enum": ["C", "C#", "D", "D#", "E", "F", "F#", "G", "G#", "A", "A#", "B"] },
+            "bpm": { "type": "integer", "description": "Lesson tempo from 40 to 240 beats per minute." },
+            "notes": {
+              "type": "array",
+              "description": "Target notes with key or Western note, start beat, and visible duration in beats."
+            }
+          },
+          "required": ["bpm", "notes"]
+        }
+      },
+      {
+        "name": "get_lesson_progress",
+        "description": "Read the visible Teach Mode result summary and one bounded page of note outcomes. Use nextCursor to continue when more results remain."
+      },
+      {
+        "name": "clear_lesson",
+        "description": "Clear the visible Teach Mode exercise and return the page to its empty lesson state. Use when the learner wants a fresh exercise."
+      }
+    ]
+  },
+  "expectedCall": [
+    {
+      "functionName": "load_lesson",
+      "arguments": {
+        "bpm": 120,
+        "notes": [
+          { "western": "C4", "startBeat": 0, "durationBeats": 1 },
+          { "western": "D4", "startBeat": 1, "durationBeats": 1 },
+          { "western": "E4", "startBeat": 2, "durationBeats": 1 }
+        ]
+      }
+    }
+  ]
+}

@@ -1,0 +1,39 @@
+{
+  "messages": [
+    {
+      "role": "user",
+      "content": "How did I do on the lesson I just played?"
+    }
+  ],
+  "applicationState": {
+    "mode": "teach",
+    "lessonPhase": "complete",
+    "tools": [
+      {
+        "name": "load_lesson",
+        "description": "Create or replace the visible Teach Mode exercise in a ready state. Use beat-timed notes; after success, the learner starts it from the page."
+      },
+      {
+        "name": "get_lesson_progress",
+        "description": "Read the visible Teach Mode result summary and one bounded page of note outcomes. Use nextCursor to continue when more results remain.",
+        "inputSchema": {
+          "type": "object",
+          "properties": {
+            "cursor": { "type": "integer", "description": "Zero-based note offset; defaults to 0." },
+            "limit": { "type": "integer", "description": "Number of outcomes to return from 1 to 12." }
+          }
+        }
+      },
+      {
+        "name": "clear_lesson",
+        "description": "Clear the visible Teach Mode exercise and return the page to its empty lesson state. Use when the learner wants a fresh exercise."
+      }
+    ]
+  },
+  "expectedCall": [
+    {
+      "functionName": "get_lesson_progress",
+      "arguments": {}
+    }
+  ]
+}

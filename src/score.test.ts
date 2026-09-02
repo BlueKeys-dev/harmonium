@@ -7,6 +7,7 @@ import {
   MAX_SCORE_NOTE_CHARS,
   demoScoreText,
   parseScore,
+  parseWebMCPScore,
   scoreDuration,
 } from "./score";
 
@@ -83,4 +84,30 @@ test("demoScoreText is a valid score", () => {
   const score = parseScore(demoScoreText());
   assert.equal(score.sa, "C");
   assert.ok(score.events.length >= 14);
+});
+
+test("parseWebMCPScore rejects entire malformed agent scores", () => {
+  const input = {
+    sa: " c ",
+    events: [
+      { t: 1, key: 14, dur: 0.5 },
+      { t: 0, key: 12, note: "Sa", dur: 1 },
+    ],
+  };
+  const score = parseWebMCPScore(input);
+  assert.equal(score.sa, "C");
+  assert.deepEqual(score.events.map((event) => event.key), [12, 14]);
+  assert.deepEqual(input.events.map((event) => event.key), [14, 12]);
+  assert.throws(
+    () => parseWebMCPScore({ events: [{ t: 0, key: 99, dur: 1 }, { t: 1, key: 12, dur: 1 }] }),
+    /events\[0\]\.key/,
+  );
+  assert.throws(
+    () => parseWebMCPScore({ events: [{ t: 0, key: 12, dur: 31 }] }),
+    /events\[0\]\.dur/,
+  );
+  assert.throws(
+    () => parseWebMCPScore({ events: [{ t: 0, key: 12 }] }),
+    /events\[0\]\.dur/,
+  );
 });

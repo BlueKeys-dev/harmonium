@@ -1,4 +1,4 @@
-import { KEY_COUNT, SA_OPTIONS, keyToWestern } from "./pitch";
+import { KEY_COUNT, SA_OPTIONS, keyToWestern, westernToKey } from "./pitch";
 
 export const TEACH_COUNT_IN_BEATS = 4;
 export const TEACH_TIMING_WINDOW_MS = 300;
@@ -109,9 +109,29 @@ export function parseTeachLesson(input: unknown, currentSa: string, lessonId: st
   const duplicates = new Set<string>();
   const notes = data.notes.map((raw, index): TeachLessonNote => {
     const note = objectValue(raw, `notes[${index}]`);
-    const key = finiteNumber(note.key, `notes[${index}].key`);
-    if (!Number.isInteger(key) || key < 0 || key >= KEY_COUNT) {
-      throw new Error(`notes[${index}].key must be an integer from 0 to ${KEY_COUNT - 1}`);
+    let key: number | null = null;
+    if (note.key !== undefined) {
+      const numericKey = finiteNumber(note.key, `notes[${index}].key`);
+      if (!Number.isInteger(numericKey) || numericKey < 0 || numericKey >= KEY_COUNT) {
+        throw new Error(`notes[${index}].key must be an integer from 0 to ${KEY_COUNT - 1}`);
+      }
+      key = numericKey;
+    }
+    if (note.western !== undefined) {
+      if (typeof note.western !== "string") {
+        throw new Error(`notes[${index}].western must be a note such as C4 or F#5`);
+      }
+      const westernKey = westernToKey(note.western);
+      if (westernKey === null) {
+        throw new Error(`notes[${index}].western must be a note from C3 through D6, using sharps`);
+      }
+      if (key !== null && key !== westernKey) {
+        throw new Error(`notes[${index}].key and western identify different notes`);
+      }
+      key = westernKey;
+    }
+    if (key === null) {
+      throw new Error(`notes[${index}] needs key 0-${KEY_COUNT - 1} or a Western note such as C4`);
     }
 
     const startBeat = finiteNumber(note.startBeat, `notes[${index}].startBeat`);

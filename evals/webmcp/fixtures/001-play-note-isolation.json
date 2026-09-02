@@ -10,11 +10,11 @@
       },
       {
         "name": "play_score",
-        "description": "Play a JSON score { sa, events: [{ t, key, note, dur }] } on the visible keyboard with audio-clock timing. t and dur are seconds; key 0-38 is the pitch source of truth; note is an advisory Sargam label; overlapping events are chords. Requires the human to have tapped 'Tap to start' for audio."
+        "description": "Play a timed score on the visible harmonium after audio is unlocked. Use seconds for t and dur, key 0-38 for pitch, and equal t values for chords."
       },
       {
         "name": "set_sa",
-        "description": "Set the movable tonic Sa for Sargam labels on the visible keyboard. Relabels only; frequencies never retune."
+        "description": "Set the movable tonic used by visible Sargam labels while keeping every keyboard key at its existing pitch."
       },
       {
         "name": "stop",

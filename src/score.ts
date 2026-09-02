@@ -18,6 +18,59 @@ export interface Score {
   events: ScoreEvent[];
 }
 
+/** Strict object validation for WebMCP; unlike the editor parser, nothing is repaired or dropped. */
+export function parseWebMCPScore(input: unknown): Score {
+  if (typeof input !== "object" || input === null || Array.isArray(input)) {
+    throw new Error("score must be an object with an events array");
+  }
+  const data = input as Record<string, unknown>;
+  let sa: string | null = null;
+  if (data.sa !== undefined) {
+    if (typeof data.sa !== "string" || data.sa.trim() === "") {
+      throw new Error("sa must be a note name such as C or F#");
+    }
+    const normalizedSa = data.sa.trim().toUpperCase();
+    if (westernToPitchClass(normalizedSa) < 0) {
+      throw new Error("sa must be one of C, C#, D, D#, E, F, F#, G, G#, A, A#, B");
+    }
+    sa = normalizedSa;
+  }
+  if (!Array.isArray(data.events) || data.events.length < 1 || data.events.length > MAX_SCORE_EVENTS) {
+    throw new Error(`events must contain 1-${MAX_SCORE_EVENTS} items`);
+  }
+  const events = data.events.map((raw, index): ScoreEvent => {
+    if (typeof raw !== "object" || raw === null || Array.isArray(raw)) {
+      throw new Error(`events[${index}] must be an object`);
+    }
+    const event = raw as Record<string, unknown>;
+    if (typeof event.t !== "number" || !Number.isFinite(event.t) || event.t < 0 || event.t > MAX_SCORE_START_SECONDS) {
+      throw new Error(`events[${index}].t must be from 0 to ${MAX_SCORE_START_SECONDS} seconds`);
+    }
+    if (typeof event.key !== "number" || !Number.isInteger(event.key) || event.key < 0 || event.key >= KEY_COUNT) {
+      throw new Error(`events[${index}].key must be an integer from 0 to ${KEY_COUNT - 1}`);
+    }
+    if (
+      typeof event.dur !== "number" ||
+      !Number.isFinite(event.dur) ||
+      event.dur <= 0 ||
+      event.dur > MAX_SCORE_EVENT_DURATION_SECONDS
+    ) {
+      throw new Error(`events[${index}].dur must be greater than 0 and at most ${MAX_SCORE_EVENT_DURATION_SECONDS} seconds`);
+    }
+    if (event.note !== undefined && (typeof event.note !== "string" || event.note.length > MAX_SCORE_NOTE_CHARS)) {
+      throw new Error(`events[${index}].note must contain at most ${MAX_SCORE_NOTE_CHARS} characters`);
+    }
+    return {
+      t: event.t,
+      key: event.key,
+      dur: event.dur,
+      note: typeof event.note === "string" ? event.note : "",
+    };
+  });
+  events.sort((a, b) => a.t - b.t);
+  return { sa, events };
+}
+
 /**
  * Validates agent/human JSON into a Score. `key` is the source of truth for
  * pitch; `note` is advisory. Never throws on messy note strings — drops or

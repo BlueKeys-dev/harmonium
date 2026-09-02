@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import { engine } from "./audioEngine";
 import { parseScore, demoScoreText, type Score } from "./score";
 import { scorePlayer } from "./scorePlayer";
@@ -23,6 +24,26 @@ import { Visualizer } from "./components/Visualizer";
 import { openJsonEditor } from "./components/jsonEditorTab";
 import { useComputerKeys } from "./hooks/useComputerKeys";
 import type { AppMode, Notation } from "./types";
+
+function waitForVisibleCommit(): Promise<void> {
+  return new Promise((resolve) => {
+    let settled = false;
+    let firstFrame = 0;
+    let secondFrame = 0;
+    const finish = () => {
+      if (settled) return;
+      settled = true;
+      window.clearTimeout(timeout);
+      cancelAnimationFrame(firstFrame);
+      cancelAnimationFrame(secondFrame);
+      resolve();
+    };
+    const timeout = window.setTimeout(finish, 200);
+    firstFrame = requestAnimationFrame(() => {
+      secondFrame = requestAnimationFrame(finish);
+    });
+  });
+}
 
 export default function App() {
   const [sa, setSa] = useState("C");
@@ -58,22 +79,29 @@ export default function App() {
     setSa(next);
   }, []);
 
-  const applyScore = useCallback((
+  const applyScore = useCallback(async (
     score: Score,
     options?: { sourceText?: string; syncEditor?: boolean },
   ) => {
     const text = options?.sourceText ?? JSON.stringify(score, null, 2);
+    flushSync(() => {
+      scoreTextRef.current = text;
+      setScoreText(text);
+      if (score.sa) applySa(score.sa);
+    });
+
     const editor = editorWindowRef.current;
     if (options?.syncEditor !== false && editor && !editor.closed) {
-      editor.postMessage(
-        { type: "harmonium-score-init", text },
-        window.location.origin,
-      );
+      try {
+        editor.postMessage(
+          { type: "harmonium-score-init", text },
+          window.location.origin,
+        );
+      } catch {
+        editorWindowRef.current = null;
+      }
     }
-
-    scoreTextRef.current = text;
-    setScoreText(text);
-    if (score.sa) applySa(score.sa);
+    await waitForVisibleCommit();
   }, [applySa]);
 
   const commitTeachSession = useCallback((next: TeachSessionState) => {
@@ -98,19 +126,28 @@ export default function App() {
     if (next !== current) commitTeachSession(next);
   };
 
-  const applyTeachLesson = useCallback((lesson: TeachLesson) => {
+  const applyTeachLesson = useCallback(async (lesson: TeachLesson) => {
     inputRouter.releaseAll();
     scorePlayer.stop();
     engine.stopAllNotes();
-    applySa(lesson.sa);
-    commitTeachSession(loadTeachLesson(lesson));
+    flushSync(() => {
+      applySa(lesson.sa);
+      commitTeachSession(loadTeachLesson(lesson));
+    });
+    await waitForVisibleCommit();
   }, [applySa, commitTeachSession, inputRouter]);
 
-  const clearTeachLesson = useCallback(() => {
+  const clearTeachLesson = useCallback(async () => {
     inputRouter.releaseAll();
     engine.stopAllNotes();
-    commitTeachSession(emptyTeachSession());
+    flushSync(() => commitTeachSession(emptyTeachSession()));
+    await waitForVisibleCommit();
   }, [commitTeachSession, inputRouter]);
+
+  const applySaForTool = useCallback(async (next: string) => {
+    flushSync(() => applySa(next));
+    await waitForVisibleCommit();
+  }, [applySa]);
 
   // Engine drives visuals + lock state; keep React in sync.
   useEffect(() => {
@@ -134,24 +171,32 @@ export default function App() {
   // Register only the catalog for the human-selected mode.
   useEffect(() => {
     let cancelled = false;
+    let unregister = () => {};
     setWebMCPMode(mode, {
       getMode: () => modeRef.current,
       getSa: () => saRef.current,
-      applySa,
+      applySa: applySaForTool,
       applyScore,
       applyTeachLesson,
       getTeachSession: () => teachSessionRef.current,
       clearTeachLesson,
-    }).then(({ status }) => {
+      waitForVisibleCommit,
+    }).then(({ status, unregister: stopRegistration }) => {
+      if (cancelled) {
+        stopRegistration();
+        return;
+      }
+      unregister = stopRegistration;
       if (status.state === "error") {
         console.error("WebMCP registration failed:", status.message);
       }
-      if (!cancelled) setWebmcp(status);
+      setWebmcp(status);
     });
     return () => {
       cancelled = true;
+      unregister();
     };
-  }, [applySa, applyScore, applyTeachLesson, clearTeachLesson, mode]);
+  }, [applySaForTool, applyScore, applyTeachLesson, clearTeachLesson, mode]);
 
   // JSON editor tab handshake: editor pulls current score, posts edits back.
   useEffect(() => {
@@ -168,8 +213,9 @@ export default function App() {
       } else if (d.type === "harmonium-score" && typeof d.text === "string") {
         try {
           const score = parseScore(d.text);
-          applyScore(score, { sourceText: d.text, syncEditor: false });
-          setFlash("Score loaded from editor tab");
+          void applyScore(score, { sourceText: d.text, syncEditor: false })
+            .then(() => setFlash("Score loaded from editor tab"))
+            .catch((e: unknown) => setFlash(`Score rejected: ${(e as Error).message}`));
         } catch (e) {
           setFlash(`Score rejected: ${(e as Error).message}`);
         }

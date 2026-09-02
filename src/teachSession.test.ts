@@ -47,6 +47,31 @@ test("parseTeachLesson strictly validates and sorts without mutating input", () 
   );
 });
 
+test("parseTeachLesson accepts familiar Western notes and rejects conflicts", () => {
+  const lesson = parseTeachLesson({
+    bpm: 90,
+    notes: [
+      { western: "C4", startBeat: 0, durationBeats: 1 },
+      { western: "F#5", startBeat: 1, durationBeats: 1 },
+    ],
+  }, "C", "western");
+  assert.deepEqual(lesson.notes.map((note) => note.key), [12, 30]);
+  assert.throws(
+    () => parseTeachLesson({
+      bpm: 90,
+      notes: [{ key: 12, western: "D4", startBeat: 0, durationBeats: 1 }],
+    }, "C", "conflict"),
+    /different notes/,
+  );
+  assert.throws(
+    () => parseTeachLesson({
+      bpm: 90,
+      notes: [{ western: "Db4", startBeat: 0, durationBeats: 1 }],
+    }, "C", "flat"),
+    /using sharps/,
+  );
+});
+
 test("grading accepts inclusive timing boundaries and consumes a target once", () => {
   const lesson = parseTeachLesson(lessonInput, "C", "lesson-1");
   let early = startTeachSession(loadTeachLesson(lesson), 0);
