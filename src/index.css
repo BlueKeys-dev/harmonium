@@ -309,14 +309,6 @@ body {
   white-space: nowrap;
 }
 
-.eyebrow {
-  color: #ffd166;
-  font-size: 0.64rem;
-  font-weight: 700;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
 .teach-actions,
 .teach-metrics {
   display: flex;
@@ -398,16 +390,6 @@ body {
   font-size: clamp(1.4rem, 4vw, 2.6rem);
   font-weight: 600;
   letter-spacing: -0.04em;
-}
-
-.teach-empty p {
-  margin: 8px 0 0;
-  color: var(--dim);
-  font-size: 0.8rem;
-}
-
-.teach-empty code {
-  color: #ffd166;
 }
 
 .count-in {

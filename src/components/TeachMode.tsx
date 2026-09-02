@@ -42,8 +42,7 @@ export function TeachMode({
     <>
       <header className="teach-header">
         <div className="teach-title">
-          <span className="eyebrow">Teach mode</span>
-          <h1>{lesson?.title ?? "Waiting for a lesson"}</h1>
+          <h1>{lesson?.title ?? "Tach Mode"}</h1>
           <span className="status">
             {lesson ? `${lesson.bpm} BPM · ${lesson.notes.length} notes` : "Ask an agent to load a lesson"}
             {octave !== 0 ? ` · keys shifted ${octave > 0 ? "+" : ""}${octave * 12}` : ""}
@@ -68,8 +67,7 @@ export function TeachMode({
         <TeachVisualizer session={session} activeKeys={activeKeys} />
         {session.phase === "empty" && (
           <div className="teach-empty">
-            <span>Lesson input ready</span>
-            <p>An agent can now call <code>load_lesson</code>.</p>
+            <span>Ready</span>
           </div>
         )}
         {session.phase === "countIn" && session.countInBeat !== null && (
