@@ -42,7 +42,7 @@ export function TeachMode({
     <>
       <header className="teach-header">
         <div className="teach-title">
-          <h1>{lesson?.title ?? "Tach Mode"}</h1>
+          <h1>{lesson?.title ?? "Teach Mode"}</h1>
           <span className="status">
             {lesson ? `${lesson.bpm} BPM · ${lesson.notes.length} notes` : "Ask an agent to load a lesson"}
             {octave !== 0 ? ` · keys shifted ${octave > 0 ? "+" : ""}${octave * 12}` : ""}
