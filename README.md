@@ -4,7 +4,7 @@ A browser Indian harmonium. Dark UI, 39 playable reed keys (23 white, 16 black) 
 
 One audio engine (`playNote(key)` / `stopNote(key)`) drives everything: mouse, computer keyboard, JSON score clock, and WebMCP. Keys light up exactly when they sound.
 
-## Demo
+## Demo 
 
 ** agent plays music:
 
